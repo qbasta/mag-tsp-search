@@ -18,7 +18,8 @@ class GeneticAlgorithm(TSPAlgorithm):
                 elitism_rate: float = 0.1,
                 crossover_type: str = "OX",
                 store_convergence_history: bool = False,
-                convergence_sample_rate: int = 1):
+                convergence_sample_rate: int = 1,
+                **kwargs):
         """
         Inicjalizacja algorytmu genetycznego.
         
@@ -30,8 +31,9 @@ class GeneticAlgorithm(TSPAlgorithm):
             crossover_type: Typ operatora krzyżowania ("OX", "PMX", "CX")
             store_convergence_history: Czy przechowywać historię zbieżności
             convergence_sample_rate: Co ile pokoleń zapisywać historię zbieżności
+            **kwargs: Dodatkowe parametry dla metadanych
         """
-        super().__init__("Genetic Algorithm")
+        super().__init__(f"Genetic Algorithm (pop={population_size}, mut={mutation_rate}, cx={crossover_type})")
         self.population_size = population_size
         self.generations = generations
         self.mutation_rate = mutation_rate
@@ -39,6 +41,10 @@ class GeneticAlgorithm(TSPAlgorithm):
         self.crossover_type = crossover_type
         self.store_convergence_history = store_convergence_history
         self.convergence_sample_rate = convergence_sample_rate
+        
+        # Zapisz wszystkie dodatkowe argumenty jako atrybuty
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         
     def _solve_implementation(self, instance: TSPInstance) -> Tuple[List[int], Dict[str, Any]]:
         """
@@ -77,6 +83,11 @@ class GeneticAlgorithm(TSPAlgorithm):
         
         # Główna pętla algorytmu genetycznego
         for generation in range(self.generations):
+            # Logowanie postępu
+            if generation % 10 == 0 or self.crossover_type in ["PMX", "CX"]:
+                elapsed = time.time() - start_time
+                print(f"Generation {generation}/{self.generations}, best distance: {best_distance:.2f}, time: {elapsed:.1f}s")
+            
             # Sprawdź limit czasu
             if time.time() - start_time > time_limit:
                 return best_tour, {
@@ -156,28 +167,32 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Sprawdź limit czasu
         if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
             if time.time() - self.start_time > self.time_limit:
-                return [list(range(instance.dimension)) for _ in range(self.population_size)]
-                
+                n = instance.dimension
+                # Zwróć prostą populację w przypadku przekroczenia czasu
+                return [list(range(n)) for _ in range(self.population_size)]
+            
         n = instance.dimension
         population = []
         
         # Jeden osobnik generowany algorytmem Nearest Neighbor
         try:
             nn = NearestNeighbor(multi_start=True)
-            if hasattr(self, 'time_limit'):
-                nn.set_time_limit(min(self.time_limit / 10, 60))  # Limit czasu dla NN
+            nn_time_limit = min(60, self.time_limit / 10) if hasattr(self, 'time_limit') else 60
+            nn.set_time_limit(nn_time_limit)
             if hasattr(self, 'start_time'):
                 nn.start_time = self.start_time
             nn_solution = nn.solve(instance)
             population.append(nn_solution.tour)
-        except:
+        except Exception as e:
+            print(f"Error initializing population with NN: {e}")
             # W przypadku błędu, dodaj losową trasę
             tour = list(range(n))
             random.shuffle(tour)
             population.append(tour)
         
         # Pozostałe osobniki generowane losowo
-        for _ in range(self.population_size - 1):
+        remaining = self.population_size - len(population)
+        for _ in range(remaining):
             # Losowa permutacja miast
             tour = list(range(n))
             random.shuffle(tour)
@@ -233,7 +248,7 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Sprawdź limit czasu
         if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
             if time.time() - self.start_time > self.time_limit:
-                return parent1
+                return parent1.copy()
                 
         n = len(parent1)
         
@@ -270,7 +285,7 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Sprawdź limit czasu
         if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
             if time.time() - self.start_time > self.time_limit:
-                return parent1
+                return parent1.copy()
                 
         n = len(parent1)
         
@@ -283,16 +298,25 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Mapowanie między wartościami w segmencie
         mapping = {}
         for i in range(start, end + 1):
-            mapping[parent2[i]] = parent1[i]
+            if parent1[i] != parent2[i]:  # Dodaj tylko jeśli wartości są różne
+                mapping[parent2[i]] = parent1[i]
             
         # Zastąp segment z pierwszego rodzica
-        child[start:end+1] = parent1[start:end+1]
+        for i in range(start, end + 1):
+            child[i] = parent1[i]
         
         # Zastosuj mapowanie do pozostałych pozycji
         for i in range(n):
             if i < start or i > end:
-                while child[i] in mapping:
-                    child[i] = mapping[child[i]]
+                current_val = child[i]
+                max_iterations = len(mapping) + 1  # Zabezpieczenie przed nieskończoną pętlą
+                iterations = 0
+                
+                while current_val in mapping and iterations < max_iterations:
+                    current_val = mapping[current_val]
+                    iterations += 1
+                
+                child[i] = current_val
         
         return child
                     
@@ -310,27 +334,51 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Sprawdź limit czasu
         if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
             if time.time() - self.start_time > self.time_limit:
-                return parent1
+                return parent1.copy()
                 
         n = len(parent1)
         
         # Inicjalizacja potomka z -1 (oznacza puste miejsce)
         child = [-1] * n
         
-        # Rozpocznij od pierwszego elementu pierwszego rodzica
-        i = 0
-        while child[i] == -1:
-            # Skopiuj element z pierwszego rodzica
-            child[i] = parent1[i]
-            
-            # Znajdź indeks tego elementu w drugim rodzicu
-            i = parent2.index(parent1[i])
-            
-        # Wypełnij pozostałe miejsca elementami z drugiego rodzica
+        # Tworzenie mapy wartości na indeksy dla szybkiego wyszukiwania
+        p1_indices = {val: idx for idx, val in enumerate(parent1)}
+        
+        # Iteracja przez wszystkie możliwe cykle
+        visited = [False] * n
+        for start_idx in range(n):
+            if not visited[start_idx]:
+                # Rozpocznij nowy cykl
+                cycle_val = parent1[start_idx]
+                idx = start_idx
+                
+                # Podążaj za cyklem
+                while not visited[idx]:
+                    # Oznacz jako odwiedzony
+                    visited[idx] = True
+                    
+                    # Przypisz wartość z pierwszego rodzica
+                    child[idx] = parent1[idx]
+                    
+                    # Znajdź tę wartość w drugim rodzicu
+                    val = parent2[idx]
+                    
+                    # Znajdź indeks tej wartości w pierwszym rodzicu
+                    if val in p1_indices:
+                        idx = p1_indices[val]
+                    else:
+                        # Jeśli wartość nie istnieje (nie powinno się zdarzyć), zakończ cykl
+                        break
+                    
+                    # Jeśli wróciliśmy do początku cyklu, zakończ
+                    if parent1[idx] == cycle_val:
+                        break
+        
+        # Wypełnij pozostałe pozycje wartościami z drugiego rodzica
         for i in range(n):
             if child[i] == -1:
                 child[i] = parent2[i]
-                
+        
         return child
     
     def _mutate(self, tour: List[int]) -> List[int]:
@@ -346,12 +394,13 @@ class GeneticAlgorithm(TSPAlgorithm):
         # Sprawdź limit czasu
         if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
             if time.time() - self.start_time > self.time_limit:
-                return tour
+                return tour.copy()
                 
         n = len(tour)
         i, j = random.sample(range(n), 2)
         
         # Zamiana dwóch miast
-        tour[i], tour[j] = tour[j], tour[i]
+        mutated_tour = tour.copy()
+        mutated_tour[i], mutated_tour[j] = mutated_tour[j], mutated_tour[i]
         
-        return tour
+        return mutated_tour

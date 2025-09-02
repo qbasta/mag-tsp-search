@@ -10,6 +10,34 @@ from src.algorithms.metaheuristics.ant_colony import AntColony
 from src.algorithms.metaheuristics.genetic_algorithm import GeneticAlgorithm
 from src.experiments.experiment import Experiment
 
+def get_params_for_size(params_dict, size):
+    """
+    Zwraca parametry dla danego rozmiaru lub najbliższego dostępnego.
+    
+    Args:
+        params_dict: Słownik parametrów
+        size: Rozmiar instancji
+        
+    Returns:
+        Dict: Parametry dla danego rozmiaru
+    """
+    if size in params_dict:
+        return params_dict[size]
+    
+    # Jeśli dokładny rozmiar nie istnieje, znajdź najbliższy
+    available_sizes = sorted(params_dict.keys())
+    if size < available_sizes[0]:
+        # Jeśli rozmiar jest mniejszy niż najmniejszy dostępny, użyj najmniejszego
+        return params_dict[available_sizes[0]]
+    
+    # Znajdź największy rozmiar, który jest mniejszy niż żądany
+    for available_size in reversed(available_sizes):
+        if available_size < size:
+            return params_dict[available_size]
+    
+    # Jeśli wszystkie dostępne rozmiary są większe, użyj najmniejszego
+    return params_dict[available_sizes[0]]
+
 def run_convergence_analysis(
     output_dir: str = "data/results/convergence", 
     sizes: List[int] = [30, 50],
@@ -30,16 +58,19 @@ def run_convergence_analysis(
     
     # Ustawienia algorytmów
     sa_params = {
+        20: {"initial_temperature": 500, "cooling_rate": 0.98},  # Dodane parametry dla rozmiaru 20
         30: {"initial_temperature": 1000, "cooling_rate": 0.99},
         50: {"initial_temperature": 5000, "cooling_rate": 0.99}
     }
 
     aco_params = {
+        20: {"num_ants": 15, "alpha": 1.5, "beta": 3.0},  # Dodane parametry dla rozmiaru 20
         30: {"num_ants": 20, "alpha": 1.5, "beta": 3.0},
         50: {"num_ants": 30, "alpha": 1.5, "beta": 3.0}
     }
 
     ga_params = {
+        20: {"population_size": 50, "mutation_rate": 0.08},  # Dodane parametry dla rozmiaru 20
         30: {"population_size": 80, "mutation_rate": 0.08},
         50: {"population_size": 150, "mutation_rate": 0.08}
     }
@@ -57,25 +88,30 @@ def run_convergence_analysis(
             instance = generate_euclidean_instance(size, seed=seed+i)
             experiment.add_instance(instance, f"euclidean_{size}_{i}")
         
+        # Pobierz odpowiednie parametry dla bieżącego rozmiaru
+        sa_size_params = get_params_for_size(sa_params, size)
+        aco_size_params = get_params_for_size(aco_params, size)
+        ga_size_params = get_params_for_size(ga_params, size)
+        
         # Dodaj algorytmy z zapisem historii zbieżności
         experiment.add_algorithm(SimulatedAnnealing(
-            initial_temperature=sa_params[size]["initial_temperature"],
-            cooling_rate=sa_params[size]["cooling_rate"],
+            initial_temperature=sa_size_params["initial_temperature"],
+            cooling_rate=sa_size_params["cooling_rate"],
             store_convergence_history=True,
             convergence_sample_rate=100
         ))
         
         experiment.add_algorithm(AntColony(
-            num_ants=aco_params[size]["num_ants"],
-            alpha=aco_params[size]["alpha"],
-            beta=aco_params[size]["beta"],
+            num_ants=aco_size_params["num_ants"],
+            alpha=aco_size_params["alpha"],
+            beta=aco_size_params["beta"],
             store_convergence_history=True,
             convergence_sample_rate=1
         ))
         
         experiment.add_algorithm(GeneticAlgorithm(
-            population_size=ga_params[size]["population_size"],
-            mutation_rate=ga_params[size]["mutation_rate"],
+            population_size=ga_size_params["population_size"],
+            mutation_rate=ga_size_params["mutation_rate"],
             store_convergence_history=True,
             convergence_sample_rate=1
         ))

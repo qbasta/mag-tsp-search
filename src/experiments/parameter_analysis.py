@@ -2,7 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List, Dict, Any
+import seaborn as sns
+from typing import List, Dict, Any, Optional, Tuple
 from src.core.instance import TSPInstance
 from src.generators.generators import generate_euclidean_instance
 from src.algorithms.metaheuristics.simulated_annealing import SimulatedAnnealing
@@ -12,17 +13,17 @@ from src.experiments.experiment import Experiment
 
 def run_parameter_analysis(
     output_dir: str = "data/results/parameters",
-    size: int = 50,
+    size: int = 30,
     runs: int = 3,
     seed: int = 42
 ) -> None:
     """
-    Przeprowadza analizę wpływu parametrów na wydajność algorytmów metaheurystycznych.
+    Przeprowadza analizę wpływu parametrów na wydajność metaheurystyk.
     
     Args:
         output_dir: Katalog na wyniki
         size: Rozmiar instancji do testowania
-        runs: Liczba uruchomień dla każdej instancji
+        runs: Liczba uruchomień dla każdej kombinacji parametrów
         seed: Ziarno generatora liczb losowych
     """
     # Utwórz katalog na wyniki
@@ -34,179 +35,251 @@ def run_parameter_analysis(
         instance = generate_euclidean_instance(size, seed=seed+i)
         instances.append((instance, f"euclidean_{size}_{i}"))
     
-    # Badanie wpływu temperatury początkowej i współczynnika chłodzenia na SA
+    # Przeprowadź analizę dla każdego algorytmu
     analyze_sa_parameters(instances, os.path.join(output_dir, "sa"), seed)
-    
-    # Badanie wpływu liczby mrówek i parametrów śladu feromonowego na ACO
     analyze_aco_parameters(instances, os.path.join(output_dir, "aco"), seed)
-    
-    # Badanie wpływu rozmiaru populacji i współczynnika mutacji na GA
     analyze_ga_parameters(instances, os.path.join(output_dir, "ga"), seed)
     
     print("Parameter analysis completed!")
-    
+
 def analyze_sa_parameters(
     instances: List[Tuple[TSPInstance, str]],
     output_dir: str,
     seed: int
 ) -> None:
     """
-    Analizuje wpływ parametrów na algorytm symulowanego wyżarzania.
+    Analizuje wpływ parametrów na wydajność Simulated Annealing.
     
     Args:
-        instances: Lista instancji z nazwami
+        instances: Lista instancji do testowania
         output_dir: Katalog na wyniki
         seed: Ziarno generatora liczb losowych
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Wpływ temperatury początkowej
+    # 1. Analiza początkowej temperatury
+    print("Analyzing SA initial temperature...")
+    
+    # Różne wartości początkowej temperatury
+    temperatures = [100, 500, 1000, 5000, 10000]
+    
     experiment_temp = Experiment("sa_initial_temperature")
-    experiment_temp.save_dir = os.path.join(output_dir, "initial_temp")
+    experiment_temp.save_dir = os.path.join(output_dir, "temperature")
+    experiment_temp.set_random_seed(seed)
+    experiment_temp.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi temperaturami początkowymi
-    for temp in [10, 50, 100, 500, 1000]:
-        experiment_temp.add_algorithm(
-            SimulatedAnnealing(
-                initial_temperature=temp,
-                cooling_rate=0.95,  # Stały współczynnik
-                store_convergence_history=True
-            )
+    for temp in temperatures:
+        sa = SimulatedAnnealing(
+            initial_temperature=temp,
+            cooling_rate=0.98,
+            store_convergence_history=True
         )
-    
-    # Dodaj instancje
+        sa.meta_initial_temperature = temp  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_temp.add_algorithm(sa)
+        
     for instance, name in instances:
         experiment_temp.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_temp.set_num_runs(1)
-    experiment_temp.set_time_limit(300)  # 5 minut
-    experiment_temp.set_random_seed(seed)
-    print("Analyzing SA initial temperature...")
     experiment_temp.run()
+    analyze_sa_temperature(experiment_temp, os.path.join(output_dir, "temperature"))
     
-    # Wizualizuj wyniki
-    experiment_temp.plot_distances()
-    experiment_temp.plot_times()
-    visualize_sa_parameter_results(experiment_temp, "initial_temperature", os.path.join(output_dir, "initial_temp"))
+    # 2. Analiza współczynnika schładzania
+    print("Analyzing SA cooling rate...")
     
-    # 2. Wpływ współczynnika chłodzenia
+    # Różne wartości współczynnika schładzania
+    cooling_rates = [0.8, 0.9, 0.95, 0.98, 0.99]
+    
     experiment_cooling = Experiment("sa_cooling_rate")
-    experiment_cooling.save_dir = os.path.join(output_dir, "cooling_rate")
+    experiment_cooling.save_dir = os.path.join(output_dir, "cooling")
+    experiment_cooling.set_random_seed(seed)
+    experiment_cooling.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi współczynnikami chłodzenia
-    for cooling_rate in [0.8, 0.9, 0.95, 0.98, 0.99]:
-        experiment_cooling.add_algorithm(
-            SimulatedAnnealing(
-                initial_temperature=100,  # Stała temperatura
-                cooling_rate=cooling_rate,
-                store_convergence_history=True
-            )
+    for rate in cooling_rates:
+        sa = SimulatedAnnealing(
+            initial_temperature=1000,
+            cooling_rate=rate,
+            store_convergence_history=True
         )
-    
-    # Dodaj instancje
+        sa.meta_cooling_rate = rate  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_cooling.add_algorithm(sa)
+        
     for instance, name in instances:
         experiment_cooling.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_cooling.set_num_runs(1)
-    experiment_cooling.set_time_limit(300)  # 5 minut
-    experiment_cooling.set_random_seed(seed)
-    print("Analyzing SA cooling rate...")
     experiment_cooling.run()
-    
-    # Wizualizuj wyniki
-    experiment_cooling.plot_distances()
-    experiment_cooling.plot_times()
-    visualize_sa_parameter_results(experiment_cooling, "cooling_rate", os.path.join(output_dir, "cooling_rate"))
+    analyze_sa_cooling_rate(experiment_cooling, os.path.join(output_dir, "cooling"))
 
-def visualize_sa_parameter_results(experiment: Experiment, param_name: str, output_dir: str) -> None:
+def analyze_sa_temperature(experiment: Experiment, output_dir: str) -> None:
     """
-    Wizualizuje wyniki analizy parametrów SA.
+    Analizuje wpływ początkowej temperatury na wydajność Simulated Annealing.
     
     Args:
         experiment: Eksperyment z wynikami
-        param_name: Nazwa analizowanego parametru
-        output_dir: Katalog na wykresy
+        output_dir: Katalog na wyniki
     """
     if experiment.results.empty:
-        print("No results to visualize.")
+        print("No results to analyze.")
         return
     
-    plots_dir = os.path.join(output_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Zbierz dane o parametrach i wynikach
-    param_values = []
-    distances = []
-    times = []
-    
-    for alg in experiment.algorithms:
-        if param_name == "initial_temperature":
-            param_values.append(alg.initial_temperature)
-        elif param_name == "cooling_rate":
-            param_values.append(alg.cooling_rate)
-        else:
-            param_values.append(0)  # Placeholder
-    
-    # Znajdź najlepsze wyniki dla każdej wartości parametru
-    summary = experiment.summarize()
-    
-    # Grupuj po parametrze i znajdź średnie wyniki
-    param_df = pd.DataFrame({
-        'param_value': param_values,
-        'algorithm': [alg.name for alg in experiment.algorithms]
+    # Grupuj wyniki według temperatury początkowej
+    temp_results = experiment.results.groupby('meta_initial_temperature').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
     })
     
-    merged = pd.merge(summary, param_df, on='algorithm')
+    # Uproszczenie indeksów i nazw kolumn
+    temp_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    temp_results = temp_results.reset_index()
     
-    # Wykres wpływu parametru na jakość rozwiązania
+    # Zapisz wyniki do pliku CSV
+    temp_results.to_csv(os.path.join(output_dir, "temperature_results.csv"), index=False)
+    
+    # Tworzenie wykresów
     plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_distance'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Solution Quality")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Distance")
+    plt.errorbar(
+        temp_results['meta_initial_temperature'],
+        temp_results['avg_distance'],
+        yerr=temp_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Initial Temperature on Solution Quality')
+    plt.xlabel('Initial Temperature')
+    plt.ylabel('Average Distance')
+    plt.xscale('log')
     plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_quality.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir, "temperature_quality.png"), dpi=300)
     plt.close()
     
-    # Wykres wpływu parametru na czas wykonania
+    # Wykres czasu obliczeń
     plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_time'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Computation Time")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Time [s]")
+    plt.errorbar(
+        temp_results['meta_initial_temperature'],
+        temp_results['avg_time'],
+        yerr=temp_results['std_time'],
+        fmt='o-'
+    )
+    plt.title('Impact of Initial Temperature on Computation Time')
+    plt.xlabel('Initial Temperature')
+    plt.ylabel('Average Time (s)')
+    plt.xscale('log')
     plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_time.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir, "temperature_time.png"), dpi=300)
     plt.close()
     
-    # Kompromis jakość/czas
-    plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.scatter(instance_data['avg_time'], instance_data['avg_distance'], label=instance)
+    # Analiza zbieżności dla różnych temperatur
+    for instance_name in experiment.instance_names:
+        plt.figure(figsize=(12, 8))
         
-        # Dodaj etykiety z wartościami parametru
-        for i, row in instance_data.iterrows():
-            plt.annotate(f"{row['param_value']}", 
-                         (row['avg_time'], row['avg_distance']),
-                         xytext=(5, 5), textcoords='offset points')
+        for temp in temp_results['meta_initial_temperature']:
+            solutions = experiment.get_solutions_for_algorithm_and_instance(
+                f"Simulated Annealing (T={temp}, α=0.98)", instance_name)
+            
+            if solutions and 'convergence_history' in solutions[0].metadata:
+                history = solutions[0].metadata['convergence_history']
+                iterations = [point[0] for point in history]
+                distances = [point[1] for point in history]
+                
+                plt.plot(iterations, distances, label=f'T={temp}')
+        
+        plt.title(f'Convergence for Different Initial Temperatures - {instance_name}')
+        plt.xlabel('Iteration')
+        plt.ylabel('Distance')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(os.path.join(output_dir, f"convergence_{instance_name}.png"), dpi=300)
+        plt.close()
+
+def analyze_sa_cooling_rate(experiment: Experiment, output_dir: str) -> None:
+    """
+    Analizuje wpływ współczynnika schładzania na wydajność Simulated Annealing.
     
-    plt.title(f"Quality/Time Trade-off for Different {param_name} Values")
-    plt.xlabel("Average Time [s]")
-    plt.ylabel("Average Distance")
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Grupuj wyniki według współczynnika schładzania
+    cooling_results = experiment.results.groupby('meta_cooling_rate').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
+    })
+    
+    # Uproszczenie indeksów i nazw kolumn
+    cooling_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    cooling_results = cooling_results.reset_index()
+    
+    # Zapisz wyniki do pliku CSV
+    cooling_results.to_csv(os.path.join(output_dir, "cooling_rate_results.csv"), index=False)
+    
+    # Tworzenie wykresów
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        cooling_results['meta_cooling_rate'],
+        cooling_results['avg_distance'],
+        yerr=cooling_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Cooling Rate on Solution Quality')
+    plt.xlabel('Cooling Rate')
+    plt.ylabel('Average Distance')
     plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_tradeoff.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir, "cooling_rate_quality.png"), dpi=300)
     plt.close()
+    
+    # Wykres czasu obliczeń
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        cooling_results['meta_cooling_rate'],
+        cooling_results['avg_time'],
+        yerr=cooling_results['std_time'],
+        fmt='o-'
+    )
+    plt.title('Impact of Cooling Rate on Computation Time')
+    plt.xlabel('Cooling Rate')
+    plt.ylabel('Average Time (s)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "cooling_rate_time.png"), dpi=300)
+    plt.close()
+    
+    # Analiza liczby iteracji dla różnych współczynników
+    # (Im wyższy współczynnik, tym więcej iteracji)
+    plt.figure(figsize=(10, 6))
+    iteration_counts = []
+    
+    for rate in cooling_results['meta_cooling_rate']:
+        total_iterations = 0
+        count = 0
+        
+        for instance_name in experiment.instance_names:
+            solutions = experiment.get_solutions_for_algorithm_and_instance(
+                f"Simulated Annealing (T=1000, α={rate})", instance_name)
+            
+            if solutions and 'convergence_history' in solutions[0].metadata:
+                history = solutions[0].metadata['convergence_history']
+                if history:
+                    total_iterations += history[-1][0]  # Ostatnia iteracja
+                    count += 1
+        
+        if count > 0:
+            avg_iterations = total_iterations / count
+            iteration_counts.append((rate, avg_iterations))
+    
+    if iteration_counts:
+        rates, iterations = zip(*iteration_counts)
+        plt.bar(rates, iterations)
+        plt.title('Average Number of Iterations by Cooling Rate')
+        plt.xlabel('Cooling Rate')
+        plt.ylabel('Average Number of Iterations')
+        plt.grid(axis='y')
+        plt.savefig(os.path.join(output_dir, "cooling_rate_iterations.png"), dpi=300)
+        plt.close()
 
 def analyze_aco_parameters(
     instances: List[Tuple[TSPInstance, str]],
@@ -214,247 +287,232 @@ def analyze_aco_parameters(
     seed: int
 ) -> None:
     """
-    Analizuje wpływ parametrów na algorytm mrówkowy.
+    Analizuje wpływ parametrów na wydajność Ant Colony Optimization.
     
     Args:
-        instances: Lista instancji z nazwami
+        instances: Lista instancji do testowania
         output_dir: Katalog na wyniki
         seed: Ziarno generatora liczb losowych
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Wpływ liczby mrówek
+    # 1. Analiza liczby mrówek
+    print("Analyzing ACO num_ants...")
+    
+    # Różne liczby mrówek
+    num_ants_values = [5, 10, 20, 30, 50]
+    
     experiment_ants = Experiment("aco_num_ants")
     experiment_ants.save_dir = os.path.join(output_dir, "num_ants")
+    experiment_ants.set_random_seed(seed)
+    experiment_ants.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi liczbami mrówek
-    for num_ants in [5, 10, 20, 30, 50]:
-        experiment_ants.add_algorithm(
-            AntColony(
-                num_ants=num_ants,
-                alpha=1.0,  # Stałe parametry
-                beta=2.0,
-                evaporation_rate=0.5,
-                store_convergence_history=True
-            )
+    for num_ants in num_ants_values:
+        aco = AntColony(
+            num_ants=num_ants,
+            alpha=1.0,
+            beta=2.5,
+            evaporation_rate=0.1
         )
-    
-    # Dodaj instancje
+        aco.meta_num_ants = num_ants  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_ants.add_algorithm(aco)
+        
     for instance, name in instances:
         experiment_ants.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_ants.set_num_runs(1)
-    experiment_ants.set_time_limit(300)  # 5 minut
-    experiment_ants.set_random_seed(seed)
-    print("Analyzing ACO num_ants...")
     experiment_ants.run()
+    analyze_aco_num_ants(experiment_ants, os.path.join(output_dir, "num_ants"))
     
-    # Wizualizuj wyniki
-    experiment_ants.plot_distances()
-    experiment_ants.plot_times()
-    visualize_aco_parameter_results(experiment_ants, "num_ants", os.path.join(output_dir, "num_ants"))
+    # 2. Analiza współczynników alpha i beta
+    print("Analyzing ACO alpha/beta parameters...")
     
-    # 2. Wpływ parametrów alfa i beta
-    experiment_weights = Experiment("aco_alpha_beta")
-    experiment_weights.save_dir = os.path.join(output_dir, "alpha_beta")
-    
-    # Różne kombinacje alfa i beta
-    configs = [
-        {"alpha": 0.5, "beta": 5.0, "name": "alpha=0.5, beta=5.0"},
-        {"alpha": 1.0, "beta": 3.0, "name": "alpha=1.0, beta=3.0"},
-        {"alpha": 1.0, "beta": 1.0, "name": "alpha=1.0, beta=1.0"},
-        {"alpha": 2.0, "beta": 2.0, "name": "alpha=2.0, beta=2.0"},
-        {"alpha": 3.0, "beta": 1.0, "name": "alpha=3.0, beta=1.0"}
+    # Różne kombinacje alpha i beta
+    alpha_beta_values = [
+        (0.5, 2.5),  # Niskie alpha, wysokie beta - większe znaczenie odległości
+        (1.0, 2.5),  # Zrównoważone
+        (1.5, 2.0),  # 
+        (2.0, 1.5),  # 
+        (2.5, 1.0)   # Wysokie alpha, niskie beta - większe znaczenie feromonów
     ]
     
-    for config in configs:
-        experiment_weights.add_algorithm(
-            AntColony(
-                num_ants=20,  # Stała liczba mrówek
-                alpha=config["alpha"],
-                beta=config["beta"],
-                evaporation_rate=0.5,  # Stały współczynnik odparowania
-                store_convergence_history=True
-            )
-        )
+    experiment_weights = Experiment("aco_alpha_beta")
+    experiment_weights.save_dir = os.path.join(output_dir, "alpha_beta")
+    experiment_weights.set_random_seed(seed)
+    experiment_weights.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj instancje
+    for alpha, beta in alpha_beta_values:
+        aco = AntColony(
+            num_ants=20,
+            alpha=alpha,
+            beta=beta,
+            evaporation_rate=0.1
+        )
+        aco.meta_alpha = alpha  # Dodanie metadanych bezpośrednio do obiektu
+        aco.meta_beta = beta
+        experiment_weights.add_algorithm(aco)
+        
     for instance, name in instances:
         experiment_weights.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_weights.set_num_runs(1)
-    experiment_weights.set_time_limit(300)  # 5 minut
-    experiment_weights.set_random_seed(seed)
-    print("Analyzing ACO alpha/beta parameters...")
     experiment_weights.run()
-    
-    # Wizualizuj wyniki
-    experiment_weights.plot_distances()
-    experiment_weights.plot_times()
-    
-    # Dodatkowa analiza - wpływ stosunku alfa/beta
     analyze_aco_alpha_beta_ratio(experiment_weights, os.path.join(output_dir, "alpha_beta"))
 
-def visualize_aco_parameter_results(experiment: Experiment, param_name: str, output_dir: str) -> None:
+def analyze_aco_num_ants(experiment: Experiment, output_dir: str) -> None:
     """
-    Wizualizuje wyniki analizy parametrów ACO.
+    Analizuje wpływ liczby mrówek na wydajność Ant Colony Optimization.
     
     Args:
         experiment: Eksperyment z wynikami
-        param_name: Nazwa analizowanego parametru
-        output_dir: Katalog na wykresy
-    """
-    if experiment.results.empty:
-        print("No results to visualize.")
-        return
-    
-    plots_dir = os.path.join(output_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
-    
-    # Zbierz dane o parametrach i wynikach
-    param_values = []
-    
-    for alg in experiment.algorithms:
-        if param_name == "num_ants":
-            param_values.append(alg.num_ants)
-        else:
-            param_values.append(0)  # Placeholder
-    
-    # Znajdź najlepsze wyniki dla każdej wartości parametru
-    summary = experiment.summarize()
-    
-    # Grupuj po parametrze i znajdź średnie wyniki
-    param_df = pd.DataFrame({
-        'param_value': param_values,
-        'algorithm': [alg.name for alg in experiment.algorithms]
-    })
-    
-    merged = pd.merge(summary, param_df, on='algorithm')
-    
-    # Wykres wpływu parametru na jakość rozwiązania
-    plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_distance'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Solution Quality")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Distance")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_quality.png"), dpi=300)
-    plt.close()
-    
-    # Wykres wpływu parametru na czas wykonania
-    plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_time'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Computation Time")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Time [s]")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_time.png"), dpi=300)
-    plt.close()
-    
-    # Wykres skalowalności (zmiana wydajności w funkcji parametru)
-    plt.figure(figsize=(10, 6))
-    
-    # Znormalizuj odległości dla każdej instancji
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        min_distance = instance_data['avg_distance'].min()
-        merged.loc[merged['instance'] == instance, 'norm_distance'] = merged.loc[merged['instance'] == instance, 'avg_distance'] / min_distance
-    
-    # Średnia znormalizowana odległość dla każdej wartości parametru
-    avg_norm = merged.groupby('param_value')['norm_distance'].mean().reset_index()
-    
-    plt.plot(avg_norm['param_value'], avg_norm['norm_distance'], 'o-')
-    plt.title(f"Normalized Performance vs {param_name}")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Normalized Distance (lower is better)")
-    plt.grid(True)
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_norm_performance.png"), dpi=300)
-    plt.close()
-
-def analyze_aco_alpha_beta_ratio(experiment: Experiment, output_dir: str) -> None:
-    """
-    Analizuje wpływ stosunku alfa/beta w algorytmie mrówkowym.
-    
-    Args:
-        experiment: Eksperyment z wynikami
-        output_dir: Katalog na wykresy
+        output_dir: Katalog na wyniki
     """
     if experiment.results.empty:
         print("No results to analyze.")
         return
     
-    plots_dir = os.path.join(output_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Zbierz dane o parametrach i wynikach
-    alpha_values = []
-    beta_values = []
-    
-    for alg in experiment.algorithms:
-        alpha_values.append(alg.alpha)
-        beta_values.append(alg.beta)
-    
-    # Znajdź najlepsze wyniki dla każdej wartości parametru
-    summary = experiment.summarize()
-    
-    # Grupuj po parametrach i znajdź średnie wyniki
-    param_df = pd.DataFrame({
-        'alpha': alpha_values,
-        'beta': beta_values,
-        'ratio': [alpha/beta if beta > 0 else float('inf') for alpha, beta in zip(alpha_values, beta_values)],
-        'algorithm': [alg.name for alg in experiment.algorithms]
+    # Grupuj wyniki według liczby mrówek
+    ants_results = experiment.results.groupby('meta_num_ants').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
     })
     
-    merged = pd.merge(summary, param_df, on='algorithm')
+    # Uproszczenie indeksów i nazw kolumn
+    ants_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    ants_results = ants_results.reset_index()
     
-    # Wykres wpływu stosunku alfa/beta na jakość rozwiązania
+    # Zapisz wyniki do pliku CSV
+    ants_results.to_csv(os.path.join(output_dir, "num_ants_results.csv"), index=False)
+    
+    # Tworzenie wykresów
     plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['ratio'], instance_data['avg_distance'], 'o-', label=instance)
-    
-    plt.title("Impact of Alpha/Beta Ratio on Solution Quality")
-    plt.xlabel("Alpha/Beta Ratio (Pheromone vs Heuristic Weight)")
-    plt.ylabel("Average Distance")
+    plt.errorbar(
+        ants_results['meta_num_ants'],
+        ants_results['avg_distance'],
+        yerr=ants_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Number of Ants on Solution Quality')
+    plt.xlabel('Number of Ants')
+    plt.ylabel('Average Distance')
     plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, "alpha_beta_ratio_quality.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir, "num_ants_quality.png"), dpi=300)
     plt.close()
     
-    # Mapowanie ciepła dla kombinacji alfa i beta
-    if len(alpha_values) >= 3 and len(beta_values) >= 3:
-        plt.figure(figsize=(10, 8))
+    # Wykres czasu obliczeń
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        ants_results['meta_num_ants'],
+        ants_results['avg_time'],
+        yerr=ants_results['std_time'],
+        fmt='o-'
+    )
+    plt.title('Impact of Number of Ants on Computation Time')
+    plt.xlabel('Number of Ants')
+    plt.ylabel('Average Time (s)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "num_ants_time.png"), dpi=300)
+    plt.close()
+    
+    # Wykres efektywności (jakość/czas)
+    plt.figure(figsize=(10, 6))
+    efficiency = ants_results['avg_distance'] / ants_results['avg_time']
+    plt.plot(ants_results['meta_num_ants'], efficiency, 'o-')
+    plt.title('Efficiency (Quality/Time) by Number of Ants')
+    plt.xlabel('Number of Ants')
+    plt.ylabel('Efficiency (lower is better)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "num_ants_efficiency.png"), dpi=300)
+    plt.close()
+
+def analyze_aco_alpha_beta_ratio(experiment: Experiment, output_dir: str) -> None:
+    """
+    Analizuje wpływ współczynników alpha i beta na wydajność Ant Colony Optimization.
+    
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Grupuj wyniki według alpha i beta
+    params_results = experiment.results.groupby(['meta_alpha', 'meta_beta']).agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
+    })
+    
+    # Uproszczenie indeksów i nazw kolumn
+    params_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    params_results = params_results.reset_index()
+    
+    # Dodaj stosunek alpha/beta
+    params_results['alpha_beta_ratio'] = params_results['meta_alpha'] / params_results['meta_beta']
+    
+    # Zapisz wyniki do pliku CSV
+    params_results.to_csv(os.path.join(output_dir, "alpha_beta_results.csv"), index=False)
+    
+    # Tworzenie wykresów
+    # 1. Wpływ stosunku alpha/beta na jakość
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        params_results['alpha_beta_ratio'],
+        params_results['avg_distance'],
+        yerr=params_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Alpha/Beta Ratio on Solution Quality')
+    plt.xlabel('Alpha/Beta Ratio')
+    plt.ylabel('Average Distance')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "alpha_beta_ratio_quality.png"), dpi=300)
+    plt.close()
+    
+    # 2. Mapa ciepła dla kombinacji alpha i beta
+    plt.figure(figsize=(10, 8))
+    
+    # Przygotuj dane dla mapy ciepła
+    pivot_data = params_results.pivot(
+        index='meta_alpha', 
+        columns='meta_beta',
+        values='avg_distance'
+    )
+    
+    sns.heatmap(pivot_data, annot=True, cmap='viridis_r', fmt=".1f")
+    plt.title('Solution Quality by Alpha and Beta Values')
+    plt.xlabel('Beta (importance of distance)')
+    plt.ylabel('Alpha (importance of pheromone)')
+    plt.savefig(os.path.join(output_dir, "alpha_beta_heatmap.png"), dpi=300)
+    plt.close()
+    
+    # 3. Wykres 3D dla kombinacji alpha, beta i jakości
+    try:
+        from mpl_toolkits.mplot3d import Axes3D
         
-        # Przygotuj dane dla mapy ciepła
-        pivot_data = merged.pivot_table(
-            values='avg_distance',
-            index='beta',
-            columns='alpha',
-            aggfunc='mean'
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        ax.scatter(
+            params_results['meta_alpha'],
+            params_results['meta_beta'],
+            params_results['avg_distance'],
+            c=params_results['avg_distance'],
+            cmap='viridis_r',
+            s=100
         )
         
-        # Sortuj indeksy i kolumny
-        pivot_data = pivot_data.sort_index(ascending=False)
-        pivot_data = pivot_data.sort_index(axis=1)
+        ax.set_xlabel('Alpha')
+        ax.set_ylabel('Beta')
+        ax.set_zlabel('Average Distance')
+        ax.set_title('Solution Quality by Alpha and Beta Values')
         
-        # Mapa ciepła
-        sns.heatmap(pivot_data, annot=True, cmap='viridis_r', fmt=".1f")
-        plt.title("Solution Quality by Alpha and Beta Values")
-        plt.xlabel("Alpha (Pheromone Weight)")
-        plt.ylabel("Beta (Heuristic Weight)")
-        plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, "alpha_beta_heatmap.png"), dpi=300)
+        plt.savefig(os.path.join(output_dir, "alpha_beta_3d.png"), dpi=300)
         plt.close()
+    except ImportError:
+        print("3D plotting not available. Skipping 3D plot.")
 
 def analyze_ga_parameters(
     instances: List[Tuple[TSPInstance, str]],
@@ -462,339 +520,358 @@ def analyze_ga_parameters(
     seed: int
 ) -> None:
     """
-    Analizuje wpływ parametrów na algorytm genetyczny.
+    Analizuje wpływ parametrów na wydajność algorytmu genetycznego.
     
     Args:
-        instances: Lista instancji z nazwami
+        instances: Lista instancji do testowania
         output_dir: Katalog na wyniki
         seed: Ziarno generatora liczb losowych
     """
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Wpływ rozmiaru populacji
+    # 1. Analiza rozmiaru populacji
+    print("Analyzing GA population size...")
+    
+    # Różne rozmiary populacji
+    population_sizes = [20, 50, 100, 150, 200]
+    
     experiment_pop = Experiment("ga_population_size")
-    experiment_pop.save_dir = os.path.join(output_dir, "population_size")
+    experiment_pop.save_dir = os.path.join(output_dir, "population")
+    experiment_pop.set_random_seed(seed)
+    experiment_pop.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi rozmiarami populacji
-    for pop_size in [20, 50, 100, 200, 500]:
-        experiment_pop.add_algorithm(
-            GeneticAlgorithm(
-                population_size=pop_size,
-                generations=100,  # Stałe parametry
-                mutation_rate=0.05,
-                elitism_rate=0.1,
-                store_convergence_history=True
-            )
+    for pop_size in population_sizes:
+        ga = GeneticAlgorithm(
+            population_size=pop_size,
+            generations=100,
+            mutation_rate=0.05,
+            crossover_type="OX",
+            store_convergence_history=True
         )
-    
-    # Dodaj instancje
+        ga.meta_population_size = pop_size  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_pop.add_algorithm(ga)
+        
     for instance, name in instances:
         experiment_pop.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_pop.set_num_runs(1)
-    experiment_pop.set_time_limit(300)  # 5 minut
-    experiment_pop.set_random_seed(seed)
-    print("Analyzing GA population size...")
     experiment_pop.run()
+    analyze_ga_population_size(experiment_pop, os.path.join(output_dir, "population"))
     
-    # Wizualizuj wyniki
-    experiment_pop.plot_distances()
-    experiment_pop.plot_times()
-    visualize_ga_parameter_results(experiment_pop, "population_size", os.path.join(output_dir, "population_size"))
+    # 2. Analiza współczynnika mutacji
+    print("Analyzing GA mutation rate...")
     
-    # 2. Wpływ współczynnika mutacji
+    # Różne współczynniki mutacji
+    mutation_rates = [0.01, 0.05, 0.1, 0.2, 0.3]
+    
     experiment_mut = Experiment("ga_mutation_rate")
-    experiment_mut.save_dir = os.path.join(output_dir, "mutation_rate")
+    experiment_mut.save_dir = os.path.join(output_dir, "mutation")
+    experiment_mut.set_random_seed(seed)
+    experiment_mut.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi współczynnikami mutacji
-    for mut_rate in [0.01, 0.05, 0.1, 0.2, 0.5]:
-        experiment_mut.add_algorithm(
-            GeneticAlgorithm(
-                population_size=100,  # Stały rozmiar populacji
-                generations=100,  # Stała liczba pokoleń
-                mutation_rate=mut_rate,
-                elitism_rate=0.1,  # Stały współczynnik elitaryzmu
-                store_convergence_history=True
-            )
+    for mut_rate in mutation_rates:
+        ga = GeneticAlgorithm(
+            population_size=100,
+            generations=100,
+            mutation_rate=mut_rate,
+            crossover_type="OX",
+            store_convergence_history=True
         )
-    
-    # Dodaj instancje
+        ga.meta_mutation_rate = mut_rate  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_mut.add_algorithm(ga)
+        
     for instance, name in instances:
         experiment_mut.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_mut.set_num_runs(1)
-    experiment_mut.set_time_limit(300)  # 5 minut
-    experiment_mut.set_random_seed(seed)
-    print("Analyzing GA mutation rate...")
     experiment_mut.run()
+    analyze_ga_mutation_rate(experiment_mut, os.path.join(output_dir, "mutation"))
     
-    # Wizualizuj wyniki
-    experiment_mut.plot_distances()
-    experiment_mut.plot_times()
-    visualize_ga_parameter_results(experiment_mut, "mutation_rate", os.path.join(output_dir, "mutation_rate"))
+    # 3. Analiza operatorów krzyżowania
+    print("Analyzing GA crossover operators...")
     
-    # 3. Wpływ operatorów krzyżowania
+    # Różne operatory krzyżowania
+    crossover_types = ["OX", "PMX", "CX"]
+    
     experiment_cx = Experiment("ga_crossover_type")
-    experiment_cx.save_dir = os.path.join(output_dir, "crossover_type")
+    experiment_cx.save_dir = os.path.join(output_dir, "crossover")
+    experiment_cx.set_random_seed(seed)
+    experiment_cx.set_time_limit(300)  # 5 minut na algorytm
     
-    # Dodaj algorytmy z różnymi operatorami krzyżowania
-    for cx_type in ["OX", "PMX", "CX"]:
-        experiment_cx.add_algorithm(
-            GeneticAlgorithm(
-                population_size=100,  # Stały rozmiar populacji
-                generations=100,  # Stała liczba pokoleń
-                mutation_rate=0.05,  # Stały współczynnik mutacji
-                elitism_rate=0.1,  # Stały współczynnik elitaryzmu
-                crossover_type=cx_type,
-                store_convergence_history=True
-            )
+    for cx_type in crossover_types:
+        ga = GeneticAlgorithm(
+            population_size=100,
+            generations=100,
+            mutation_rate=0.05,
+            crossover_type=cx_type,
+            store_convergence_history=True
         )
-    
-    # Dodaj instancje
+        ga.meta_crossover_type = cx_type  # Dodanie metadanych bezpośrednio do obiektu
+        experiment_cx.add_algorithm(ga)
+        
     for instance, name in instances:
         experiment_cx.add_instance(instance, name)
     
-    # Uruchom eksperyment
-    experiment_cx.set_num_runs(1)
-    experiment_cx.set_time_limit(300)  # 5 minut
-    experiment_cx.set_random_seed(seed)
-    print("Analyzing GA crossover operators...")
     experiment_cx.run()
-    
-    # Wizualizuj wyniki
-    experiment_cx.plot_distances()
-    experiment_cx.plot_times()
-    visualize_ga_crossover_results(experiment_cx, os.path.join(output_dir, "crossover_type"))
+    analyze_ga_crossover(experiment_cx, os.path.join(output_dir, "crossover"))
 
-def visualize_ga_parameter_results(experiment: Experiment, param_name: str, output_dir: str) -> None:
+def analyze_ga_population_size(experiment: Experiment, output_dir: str) -> None:
     """
-    Wizualizuje wyniki analizy parametrów GA.
+    Analizuje wpływ rozmiaru populacji na wydajność algorytmu genetycznego.
     
     Args:
         experiment: Eksperyment z wynikami
-        param_name: Nazwa analizowanego parametru
-        output_dir: Katalog na wykresy
+        output_dir: Katalog na wyniki
     """
     if experiment.results.empty:
-        print("No results to visualize.")
+        print("No results to analyze.")
         return
     
-    plots_dir = os.path.join(output_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Zbierz dane o parametrach i wynikach
-    param_values = []
-    
-    for alg in experiment.algorithms:
-        if param_name == "population_size":
-            param_values.append(alg.population_size)
-        elif param_name == "mutation_rate":
-            param_values.append(alg.mutation_rate)
-        else:
-            param_values.append(0)  # Placeholder
-    
-    # Znajdź najlepsze wyniki dla każdej wartości parametru
-    summary = experiment.summarize()
-    
-    # Grupuj po parametrze i znajdź średnie wyniki
-    param_df = pd.DataFrame({
-        'param_value': param_values,
-        'algorithm': [alg.name for alg in experiment.algorithms]
+    # Grupuj wyniki według rozmiaru populacji
+    pop_results = experiment.results.groupby('meta_population_size').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
     })
     
-    merged = pd.merge(summary, param_df, on='algorithm')
+    # Uproszczenie indeksów i nazw kolumn
+    pop_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    pop_results = pop_results.reset_index()
     
-    # Wykres wpływu parametru na jakość rozwiązania
+    # Zapisz wyniki do pliku CSV
+    pop_results.to_csv(os.path.join(output_dir, "population_size_results.csv"), index=False)
+    
+    # Tworzenie wykresów
     plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_distance'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Solution Quality")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Distance")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_quality.png"), dpi=300)
-    plt.close()
-    
-    # Wykres wpływu parametru na czas wykonania
-    plt.figure(figsize=(10, 6))
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['avg_time'], 'o-', label=instance)
-    
-    plt.title(f"Impact of {param_name} on Computation Time")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Average Time [s]")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_time.png"), dpi=300)
-    plt.close()
-    
-    # Wykres kompromisu jakość/czas
-    plt.figure(figsize=(10, 6))
-    
-    colors = plt.cm.viridis(np.linspace(0, 1, len(merged['param_value'].unique())))
-    color_map = {value: color for value, color in zip(sorted(merged['param_value'].unique()), colors)}
-    
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        
-        for i, row in instance_data.iterrows():
-            plt.scatter(row['avg_time'], row['avg_distance'], 
-                       color=color_map[row['param_value']], 
-                       label=f"{param_name}={row['param_value']}" if instance == merged['instance'].iloc[0] else None)
-    
-    plt.title(f"Quality/Time Trade-off for Different {param_name} Values")
-    plt.xlabel("Average Time [s]")
-    plt.ylabel("Average Distance")
-    plt.grid(True)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_tradeoff.png"), dpi=300)
-    plt.close()
-    
-    # Wykres efektywności (jakość/czas) w funkcji parametru
-    plt.figure(figsize=(10, 6))
-    
-    # Oblicz efektywność
-    merged['efficiency'] = merged['best_distance'] / (merged['avg_distance'] * merged['avg_time'])
-    
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        plt.plot(instance_data['param_value'], instance_data['efficiency'], 'o-', label=instance)
-    
-    plt.title(f"Efficiency by {param_name}")
-    plt.xlabel(param_name.replace('_', ' ').title())
-    plt.ylabel("Efficiency (Quality/Time)")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(os.path.join(plots_dir, f"{param_name}_efficiency.png"), dpi=300)
-    plt.close()
-
-def visualize_ga_crossover_results(experiment: Experiment, output_dir: str) -> None:
-    """
-    Wizualizuje wyniki analizy operatorów krzyżowania w GA.
-    
-    Args:
-        experiment: Eksperyment z wynikami
-        output_dir: Katalog na wykresy
-    """
-    if experiment.results.empty:
-        print("No results to visualize.")
-        return
-    
-    plots_dir = os.path.join(output_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
-    
-    # Zbierz dane o operatorach i wynikach
-    crossover_types = [alg.crossover_type for alg in experiment.algorithms]
-    
-    # Znajdź najlepsze wyniki dla każdego operatora krzyżowania
-    summary = experiment.summarize()
-    
-    # Grupuj po operatorze i znajdź średnie wyniki
-    param_df = pd.DataFrame({
-        'crossover_type': crossover_types,
-        'algorithm': [alg.name for alg in experiment.algorithms]
-    })
-    
-    merged = pd.merge(summary, param_df, on='algorithm')
-    
-    # Wykres porównawczy jakości rozwiązań
-    plt.figure(figsize=(10, 6))
-    
-    # Grupuj po crossover_type i instance
-    instance_data = merged.groupby(['instance', 'crossover_type']).agg({
-        'avg_distance': 'mean',
-        'std_distance': 'mean'
-    }).reset_index()
-    
-    # Dla każdej instancji, narysuj grupowany wykres słupkowy
-    instances = instance_data['instance'].unique()
-    crossover_types = instance_data['crossover_type'].unique()
-    x = np.arange(len(instances))
-    width = 0.8 / len(crossover_types)
-    
-    for i, cx_type in enumerate(crossover_types):
-        cx_data = instance_data[instance_data['crossover_type'] == cx_type]
-        plt.bar(x + i*width - 0.4 + width/2, 
-               cx_data['avg_distance'], 
-               width, 
-               label=cx_type,
-               yerr=cx_data['std_distance'])
-    
-    plt.xlabel('Instance')
+    plt.errorbar(
+        pop_results['meta_population_size'],
+        pop_results['avg_distance'],
+        yerr=pop_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Population Size on Solution Quality')
+    plt.xlabel('Population Size')
     plt.ylabel('Average Distance')
-    plt.title('Comparison of Crossover Operators')
-    plt.xticks(x, instances)
-    plt.legend()
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "crossover_quality.png"), dpi=300)
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "population_size_quality.png"), dpi=300)
     plt.close()
     
-    # Wykres porównawczy czasów wykonania
+    # Wykres czasu obliczeń
     plt.figure(figsize=(10, 6))
-    
-    # Grupuj po crossover_type i instance
-    instance_data = merged.groupby(['instance', 'crossover_type']).agg({
-        'avg_time': 'mean',
-        'std_time': 'mean'
-    }).reset_index()
-    
-    # Dla każdej instancji, narysuj grupowany wykres słupkowy
-    for i, cx_type in enumerate(crossover_types):
-        cx_data = instance_data[instance_data['crossover_type'] == cx_type]
-        plt.bar(x + i*width - 0.4 + width/2, 
-               cx_data['avg_time'], 
-               width, 
-               label=cx_type,
-               yerr=cx_data['std_time'])
-    
-    plt.xlabel('Instance')
-    plt.ylabel('Average Time [s]')
-    plt.title('Computation Time by Crossover Operator')
-    plt.xticks(x, instances)
-    plt.legend()
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "crossover_time.png"), dpi=300)
+    plt.errorbar(
+        pop_results['meta_population_size'],
+        pop_results['avg_time'],
+        yerr=pop_results['std_time'],
+        fmt='o-'
+    )
+    plt.title('Impact of Population Size on Computation Time')
+    plt.xlabel('Population Size')
+    plt.ylabel('Average Time (s)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "population_size_time.png"), dpi=300)
     plt.close()
     
-    # Porównanie wydajności operatorów krzyżowania
+    # Wykres efektywności (jakość/czas)
     plt.figure(figsize=(10, 6))
+    efficiency = pop_results['avg_distance'] * pop_results['avg_time']  # Wyższe wartości = gorsza efektywność
+    plt.plot(pop_results['meta_population_size'], efficiency, 'o-')
+    plt.title('Efficiency by Population Size')
+    plt.xlabel('Population Size')
+    plt.ylabel('Efficiency Metric (lower is better)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "population_size_efficiency.png"), dpi=300)
+    plt.close()
     
-    # Oblicz średnią poprawę względem najgorszego operatora
-    improvement_data = []
-    
-    for instance in merged['instance'].unique():
-        instance_data = merged[merged['instance'] == instance]
-        worst_dist = instance_data['avg_distance'].max()
+    # Analiza zbieżności dla różnych rozmiarów populacji
+    for instance_name in experiment.instance_names:
+        plt.figure(figsize=(12, 8))
         
-        for cx_type in crossover_types:
-            cx_data = instance_data[instance_data['crossover_type'] == cx_type]
-            if not cx_data.empty:
-                improvement = (worst_dist - cx_data['avg_distance'].iloc[0]) / worst_dist * 100
-                improvement_data.append({
-                    'instance': instance,
-                    'crossover_type': cx_type,
-                    'improvement': improvement
-                })
+        for pop_size in pop_results['meta_population_size']:
+            solutions = experiment.get_solutions_for_algorithm_and_instance(
+                f"Genetic Algorithm (pop={pop_size}, mut=0.05, cx=OX)", instance_name)
+            
+            if solutions and 'convergence_history' in solutions[0].metadata:
+                history = solutions[0].metadata['convergence_history']
+                generations = [point[0] for point in history]
+                distances = [point[1] for point in history]
+                
+                plt.plot(generations, distances, label=f'Pop={pop_size}')
+        
+        plt.title(f'Convergence for Different Population Sizes - {instance_name}')
+        plt.xlabel('Generation')
+        plt.ylabel('Distance')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(os.path.join(output_dir, f"convergence_{instance_name}.png"), dpi=300)
+        plt.close()
+
+def analyze_ga_mutation_rate(experiment: Experiment, output_dir: str) -> None:
+    """
+    Analizuje wpływ współczynnika mutacji na wydajność algorytmu genetycznego.
     
-    improvement_df = pd.DataFrame(improvement_data)
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
     
-    # Oblicz średnią poprawę dla każdego operatora
-    avg_improvement = improvement_df.groupby('crossover_type')['improvement'].mean().reset_index()
+    os.makedirs(output_dir, exist_ok=True)
     
-    plt.bar(avg_improvement['crossover_type'], avg_improvement['improvement'])
-    plt.xlabel('Crossover Operator')
-    plt.ylabel('Average Improvement [%]')
-    plt.title('Average Improvement by Crossover Operator')
+    # Grupuj wyniki według współczynnika mutacji
+    mut_results = experiment.results.groupby('meta_mutation_rate').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
+    })
+    
+    # Uproszczenie indeksów i nazw kolumn
+    mut_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    mut_results = mut_results.reset_index()
+    
+    # Zapisz wyniki do pliku CSV
+    mut_results.to_csv(os.path.join(output_dir, "mutation_rate_results.csv"), index=False)
+    
+    # Tworzenie wykresów
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        mut_results['meta_mutation_rate'],
+        mut_results['avg_distance'],
+        yerr=mut_results['std_distance'],
+        fmt='o-'
+    )
+    plt.title('Impact of Mutation Rate on Solution Quality')
+    plt.xlabel('Mutation Rate')
+    plt.ylabel('Average Distance')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "mutation_rate_quality.png"), dpi=300)
+    plt.close()
+    
+    # Wykres czasu obliczeń
+    plt.figure(figsize=(10, 6))
+    plt.errorbar(
+        mut_results['meta_mutation_rate'],
+        mut_results['avg_time'],
+        yerr=mut_results['std_time'],
+        fmt='o-'
+    )
+    plt.title('Impact of Mutation Rate on Computation Time')
+    plt.xlabel('Mutation Rate')
+    plt.ylabel('Average Time (s)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, "mutation_rate_time.png"), dpi=300)
+    plt.close()
+    
+    # Analiza zbieżności dla różnych współczynników mutacji
+    for instance_name in experiment.instance_names:
+        plt.figure(figsize=(12, 8))
+        
+        for mut_rate in mut_results['meta_mutation_rate']:
+            solutions = experiment.get_solutions_for_algorithm_and_instance(
+                f"Genetic Algorithm (pop=100, mut={mut_rate}, cx=OX)", instance_name)
+            
+            if solutions and 'convergence_history' in solutions[0].metadata:
+                history = solutions[0].metadata['convergence_history']
+                generations = [point[0] for point in history]
+                distances = [point[1] for point in history]
+                
+                plt.plot(generations, distances, label=f'Mut={mut_rate}')
+        
+        plt.title(f'Convergence for Different Mutation Rates - {instance_name}')
+        plt.xlabel('Generation')
+        plt.ylabel('Distance')
+        plt.legend()
+        plt.grid(True)
+        plt.savefig(os.path.join(output_dir, f"convergence_{instance_name}.png"), dpi=300)
+        plt.close()
+
+def analyze_ga_crossover(experiment: Experiment, output_dir: str) -> None:
+    """
+    Analizuje wpływ operatorów krzyżowania na wydajność algorytmu genetycznego.
+    
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
+    
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Grupuj wyniki według typu krzyżowania
+    cx_results = experiment.results.groupby('meta_crossover_type').agg({
+        'distance': ['mean', 'std', 'min'],
+        'time': ['mean', 'std']
+    })
+    
+    # Uproszczenie indeksów i nazw kolumn
+    cx_results.columns = ['avg_distance', 'std_distance', 'min_distance', 'avg_time', 'std_time']
+    cx_results = cx_results.reset_index()
+    
+    # Zapisz wyniki do pliku CSV
+    cx_results.to_csv(os.path.join(output_dir, "crossover_type_results.csv"), index=False)
+    
+    # Tworzenie wykresów
+    plt.figure(figsize=(10, 6))
+    plt.bar(
+        cx_results['meta_crossover_type'],
+        cx_results['avg_distance'],
+        yerr=cx_results['std_distance']
+    )
+    plt.title('Impact of Crossover Type on Solution Quality')
+    plt.xlabel('Crossover Type')
+    plt.ylabel('Average Distance')
     plt.grid(axis='y')
+    plt.savefig(os.path.join(output_dir, "crossover_type_quality.png"), dpi=300)
+    plt.close()
+    
+    # Wykres czasu obliczeń
+    plt.figure(figsize=(10, 6))
+    plt.bar(
+        cx_results['meta_crossover_type'],
+        cx_results['avg_time'],
+        yerr=cx_results['std_time']
+    )
+    plt.title('Impact of Crossover Type on Computation Time')
+    plt.xlabel('Crossover Type')
+    plt.ylabel('Average Time (s)')
+    plt.grid(axis='y')
+    plt.savefig(os.path.join(output_dir, "crossover_type_time.png"), dpi=300)
+    plt.close()
+    
+    # Wykres szczegółowy dla każdej instancji
+    plt.figure(figsize=(12, 8))
+    
+    # Dane do wykresu
+    instances = []
+    crossovers = []
+    distances = []
+    
+    for instance_name in experiment.instance_names:
+        for cx_type in cx_results['meta_crossover_type']:
+            solutions = experiment.get_solutions_for_algorithm_and_instance(
+                f"Genetic Algorithm (pop=100, mut=0.05, cx={cx_type})", instance_name)
+            
+            if solutions:
+                distance = solutions[0].distance
+                instances.append(instance_name)
+                crossovers.append(cx_type)
+                distances.append(distance)
+    
+    # Utwórz DataFrame
+    detailed_df = pd.DataFrame({
+        'instance': instances,
+        'crossover': crossovers,
+        'distance': distances
+    })
+    
+    # Twórz wykres słupkowy
+    sns.barplot(x='instance', y='distance', hue='crossover', data=detailed_df)
+    plt.title('Impact of Crossover Type by Instance')
+    plt.xlabel('Instance')
+    plt.ylabel('Distance')
+    plt.xticks(rotation=45)
+    plt.legend(title='Crossover Type')
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "crossover_improvement.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir, "crossover_type_by_instance.png"), dpi=300)
     plt.close()

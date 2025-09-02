@@ -1,7 +1,8 @@
-import numpy as np
-from typing import Dict, Any, List, Tuple, Optional
-import time
 import random
+import math
+import numpy as np
+import time
+from typing import Dict, Any, List, Tuple
 from src.core.instance import TSPInstance
 from src.core.algorithm import TSPAlgorithm
 
@@ -11,39 +12,43 @@ class AntColony(TSPAlgorithm):
     """
     
     def __init__(self, 
-                num_ants: int = 10,
-                alpha: float = 1.0,
-                beta: float = 2.0,
-                evaporation_rate: float = 0.5,
-                q: float = 100.0,
-                max_iterations: int = 100,
-                store_convergence_history: bool = False,
-                convergence_sample_rate: int = 1):
+                 num_ants: int = 10,
+                 alpha: float = 1.0,
+                 beta: float = 2.5,
+                 evaporation_rate: float = 0.1,
+                 iterations: int = 100,
+                 q0: float = 0.0,  # Parametr eksploracji/eksploatacji (q0=0 oznacza pełną eksplorację)
+                 store_convergence_history: bool = False,
+                 convergence_sample_rate: int = 1,
+                 **kwargs):
         """
         Inicjalizacja algorytmu mrówkowego.
         
         Args:
             num_ants: Liczba mrówek
-            alpha: Waga śladu feromonowego
-            beta: Waga heurystycznej atrakcyjności
-            evaporation_rate: Współczynnik odparowania feromonów
-            q: Stała wzmocnienia śladu feromonowego
-            max_iterations: Maksymalna liczba iteracji
+            alpha: Waga feromonów (α)
+            beta: Waga heurystyki (β)
+            evaporation_rate: Współczynnik parowania feromonów (ρ)
+            iterations: Liczba iteracji
+            q0: Parametr eksploracji/eksploatacji (q0=0 oznacza pełną eksplorację)
             store_convergence_history: Czy przechowywać historię zbieżności
             convergence_sample_rate: Co ile iteracji zapisywać historię zbieżności
+            **kwargs: Dodatkowe parametry dla metadanych
         """
-        super().__init__("Ant Colony")
+        super().__init__(f"Ant Colony (ants={num_ants}, α={alpha}, β={beta})")
         self.num_ants = num_ants
         self.alpha = alpha
         self.beta = beta
         self.evaporation_rate = evaporation_rate
-        self.q = q
-        self.max_iterations = max_iterations
+        self.iterations = iterations
+        self.q0 = q0
         self.store_convergence_history = store_convergence_history
         self.convergence_sample_rate = convergence_sample_rate
-        self.reference_tour = None  # Opcjonalna trasa referencyjna
-        self.reference_distance = None  # Opcjonalny dystans referencyjny
         
+        # Zapisz wszystkie dodatkowe argumenty jako atrybuty
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+    
     def _solve_implementation(self, instance: TSPInstance) -> Tuple[List[int], Dict[str, Any]]:
         """
         Implementacja algorytmu mrówkowego.
@@ -60,166 +65,130 @@ class AntColony(TSPAlgorithm):
         
         n = instance.dimension
         
-        # Inicjalizacja śladu feromonowego
-        pheromone = np.ones((n, n))
+        # Obliczenie macierzy odległości
+        distance_matrix = np.zeros((n, n))
+        for i in range(n):
+            for j in range(i+1, n):
+                dist = instance.get_distance(i, j)
+                distance_matrix[i, j] = dist
+                distance_matrix[j, i] = dist
         
-        # Inicjalizacja heurystycznej atrakcyjności (odwrotność odległości)
+        # Obliczenie macierzy heurystyki (odwrotność odległości)
         heuristic = np.zeros((n, n))
         for i in range(n):
             for j in range(n):
-                if i != j:
-                    heuristic[i, j] = 1.0 / instance.get_distance(i, j)
+                if i != j and distance_matrix[i, j] > 0:
+                    heuristic[i, j] = 1.0 / distance_matrix[i, j]
         
-        # Jeśli mamy trasę referencyjną, wzmocnij ślad feromonowy na jej krawędziach
-        if self.reference_tour is not None and self.reference_distance is not None:
-            # Wzmocnienie śladu feromonowego na trasie referencyjnej
-            for i in range(len(self.reference_tour) - 1):
-                city1 = self.reference_tour[i]
-                city2 = self.reference_tour[i + 1]
-                pheromone[city1, city2] += self.q / self.reference_distance
-                pheromone[city2, city1] += self.q / self.reference_distance
-            
-            # Zamknij cykl
-            city1 = self.reference_tour[-1]
-            city2 = self.reference_tour[0]
-            pheromone[city1, city2] += self.q / self.reference_distance
-            pheromone[city2, city1] += self.q / self.reference_distance
+        # Inicjalizacja macierzy feromonów
+        pheromone = np.ones((n, n)) * 0.1
         
-        # Inicjalizacja najlepszej trasy
+        # Najlepsza znaleziona trasa i jej długość
         best_tour = None
         best_distance = float('inf')
         
         # Historia zbieżności
         convergence_history = []
         
-        # Główna pętla algorytmu mrówkowego
-        for iteration in range(self.max_iterations):
+        # Główna pętla algorytmu
+        for iteration in range(self.iterations):
             # Sprawdź limit czasu
             if time.time() - start_time > time_limit:
-                if best_tour is None:
-                    best_tour = list(range(n))
-                    
                 return best_tour, {
                     "iterations": iteration,
-                    "final_pheromone_stats": {
-                        "min": float(np.min(pheromone)),
-                        "max": float(np.max(pheromone)),
-                        "mean": float(np.mean(pheromone))
-                    },
                     "convergence_history": convergence_history if self.store_convergence_history else None,
                     "time_limit_exceeded": True
                 }
-                
-            # Trasa każdej mrówki
-            ant_tours = []
-            ant_distances = []
             
-            # Każda mrówka konstruuje trasę
+            # Lista tras wszystkich mrówek w tej iteracji
+            ant_tours = []
+            
+            # Każda mrówka tworzy trasę
             for ant in range(self.num_ants):
-                tour = self._construct_solution(instance, pheromone, heuristic)
-                distance = instance.get_total_distance(tour)
+                # Losowy start
+                current_city = random.randrange(n)
+                tour = [current_city]
+                visited = [False] * n
+                visited[current_city] = True
                 
-                ant_tours.append(tour)
-                ant_distances.append(distance)
+                # Tworzenie trasy
+                for step in range(n-1):
+                    # Obliczenie prawdopodobieństw wyboru następnego miasta
+                    probabilities = []
+                    denominator = 0.0
+                    
+                    for city in range(n):
+                        if not visited[city]:
+                            p = (pheromone[current_city, city] ** self.alpha) * (heuristic[current_city, city] ** self.beta)
+                            probabilities.append((city, p))
+                            denominator += p
+                    
+                    # Normalizacja prawdopodobieństw
+                    for i in range(len(probabilities)):
+                        city, p = probabilities[i]
+                        probabilities[i] = (city, p / denominator if denominator > 0 else 0)
+                    
+                    # Wybór następnego miasta
+                    next_city = None
+                    
+                    # Eksploatacja vs eksploracja (reguła pseudorandomowa proporcjonalna)
+                    if random.random() < self.q0:  # Eksploatacja
+                        # Wybór najlepszego miasta
+                        best_p = -1
+                        for city, p in probabilities:
+                            if p > best_p:
+                                best_p = p
+                                next_city = city
+                    else:  # Eksploracja
+                        # Losowy wybór miasta zgodnie z prawdopodobieństwami
+                        r = random.random()
+                        cumulative_p = 0
+                        for city, p in probabilities:
+                            cumulative_p += p
+                            if r <= cumulative_p:
+                                next_city = city
+                                break
+                    
+                    if next_city is None and probabilities:  # Zabezpieczenie
+                        next_city = probabilities[0][0]
+                    
+                    # Aktualizacja trasy
+                    tour.append(next_city)
+                    visited[next_city] = True
+                    current_city = next_city
+                
+                # Obliczenie długości trasy
+                distance = instance.get_total_distance(tour)
+                ant_tours.append((tour, distance))
                 
                 # Aktualizacja najlepszej trasy
                 if distance < best_distance:
-                    best_distance = distance
                     best_tour = tour.copy()
-                    
-            # Aktualizacja feromonu
-            pheromone *= (1 - self.evaporation_rate)  # Odparowanie
+                    best_distance = distance
             
-            # Wzmocnienie śladu na ścieżkach mrówek
-            for ant in range(self.num_ants):
-                tour = ant_tours[ant]
-                distance = ant_distances[ant]
+            # Parowanie feromonów
+            pheromone *= (1.0 - self.evaporation_rate)
+            
+            # Aktualizacja feromonów na podstawie tras mrówek
+            for tour, distance in ant_tours:
+                # Ilość feromonu dodawanego do ścieżki jest odwrotnie proporcjonalna do jej długości
+                deposit = 1.0 / distance
                 
-                for i in range(len(tour) - 1):
-                    pheromone[tour[i], tour[i+1]] += self.q / distance
-                    pheromone[tour[i+1], tour[i]] += self.q / distance  # Symetryczne wzmocnienie
-                
-                # Zamknięcie cyklu
-                pheromone[tour[-1], tour[0]] += self.q / distance
-                pheromone[tour[0], tour[-1]] += self.q / distance
-                
-            # Zapisz historię zbieżności
+                # Dodanie feromonów do każdej krawędzi na trasie
+                for i in range(len(tour)):
+                    from_city = tour[i]
+                    to_city = tour[(i + 1) % n]
+                    pheromone[from_city, to_city] += deposit
+                    pheromone[to_city, from_city] += deposit  # Symetria
+            
+            # Zapis historii zbieżności
             if self.store_convergence_history and iteration % self.convergence_sample_rate == 0:
-                convergence_history.append((iteration, best_distance))
+                # Oblicz średnią długość tras w tej iteracji
+                avg_distance = sum(d for _, d in ant_tours) / len(ant_tours)
+                convergence_history.append((iteration, best_distance, avg_distance))
         
-        if best_tour is None:
-            best_tour = list(range(n))
-            
         return best_tour, {
-            "iterations": self.max_iterations,
-            "final_pheromone_stats": {
-                "min": float(np.min(pheromone)),
-                "max": float(np.max(pheromone)),
-                "mean": float(np.mean(pheromone))
-            },
+            "iterations": self.iterations,
+            "best_distance": best_distance,
             "convergence_history": convergence_history if self.store_convergence_history else None
         }
-    
-    def _construct_solution(self, 
-                           instance: TSPInstance,
-                           pheromone: np.ndarray,
-                           heuristic: np.ndarray) -> List[int]:
-        """
-        Konstrukcja rozwiązania przez pojedynczą mrówkę.
-        
-        Args:
-            instance: Instancja problemu TSP
-            pheromone: Macierz feromonów
-            heuristic: Macierz heurystycznej atrakcyjności
-            
-        Returns:
-            List[int]: Skonstruowana trasa
-        """
-        # Sprawdź limit czasu
-        if hasattr(self, 'start_time') and hasattr(self, 'time_limit'):
-            if time.time() - self.start_time > self.time_limit:
-                return list(range(instance.dimension))
-                
-        n = instance.dimension
-        
-        # Losowy wierzchołek startowy
-        start = random.randint(0, n - 1)
-        tour = [start]
-        unvisited = set(range(n))
-        unvisited.remove(start)
-        
-        # Konstruowanie trasy
-        while unvisited:
-            current = tour[-1]
-            
-            # Obliczenie prawdopodobieństwa wyboru każdego nieodwiedzonego miasta
-            probabilities = []
-            for city in unvisited:
-                # Prawdopodobieństwo proporcjonalne do (feromon)^alpha * (heurystyka)^beta
-                p = (pheromone[current, city] ** self.alpha) * (heuristic[current, city] ** self.beta)
-                probabilities.append((city, p))
-                
-            # Wybór miasta metodą ruletki
-            total = sum(p for _, p in probabilities)
-            r = random.random() * total
-            
-            cum_sum = 0
-            for city, p in probabilities:
-                cum_sum += p
-                if cum_sum >= r:
-                    tour.append(city)
-                    unvisited.remove(city)
-                    break
-            else:
-                # W przypadku problemów numerycznych, wybierz ostatnie miasto
-                if probabilities:  # Upewnij się, że lista nie jest pusta
-                    city = probabilities[-1][0]
-                    tour.append(city)
-                    unvisited.remove(city)
-                else:
-                    # Jeśli probabilities jest pusta, dodaj dowolne nieodwiedzone miasto
-                    city = next(iter(unvisited))
-                    tour.append(city)
-                    unvisited.remove(city)
-                
-        return tour

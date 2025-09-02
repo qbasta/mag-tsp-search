@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from src.core.instance import TSPInstance
 from src.generators.generators import generate_euclidean_instance
 from src.algorithms.exact.held_karp import HeldKarp
