@@ -72,9 +72,9 @@ def analyze_sa_parameters(
         sa = SimulatedAnnealing(
             initial_temperature=temp,
             cooling_rate=0.98,
-            store_convergence_history=True
+            store_convergence_history=True,
+            meta_initial_temperature=temp  # Przekaż jako argument konstruktora
         )
-        sa.meta_initial_temperature = temp  # Dodanie metadanych bezpośrednio do obiektu
         experiment_temp.add_algorithm(sa)
         
     for instance, name in instances:
@@ -98,9 +98,9 @@ def analyze_sa_parameters(
         sa = SimulatedAnnealing(
             initial_temperature=1000,
             cooling_rate=rate,
-            store_convergence_history=True
+            store_convergence_history=True,
+            meta_cooling_rate=rate  # Przekaż jako argument konstruktora
         )
-        sa.meta_cooling_rate = rate  # Dodanie metadanych bezpośrednio do obiektu
         experiment_cooling.add_algorithm(sa)
         
     for instance, name in instances:
@@ -312,9 +312,9 @@ def analyze_aco_parameters(
             num_ants=num_ants,
             alpha=1.0,
             beta=2.5,
-            evaporation_rate=0.1
+            evaporation_rate=0.1,
+            meta_num_ants=num_ants  # Przekaż jako argument konstruktora
         )
-        aco.meta_num_ants = num_ants  # Dodanie metadanych bezpośrednio do obiektu
         experiment_ants.add_algorithm(aco)
         
     for instance, name in instances:
@@ -345,10 +345,10 @@ def analyze_aco_parameters(
             num_ants=20,
             alpha=alpha,
             beta=beta,
-            evaporation_rate=0.1
+            evaporation_rate=0.1,
+            meta_alpha=alpha,  # Przekaż jako argument konstruktora
+            meta_beta=beta
         )
-        aco.meta_alpha = alpha  # Dodanie metadanych bezpośrednio do obiektu
-        aco.meta_beta = beta
         experiment_weights.add_algorithm(aco)
         
     for instance, name in instances:
@@ -546,9 +546,9 @@ def analyze_ga_parameters(
             generations=100,
             mutation_rate=0.05,
             crossover_type="OX",
-            store_convergence_history=True
+            store_convergence_history=True,
+            meta_population_size=pop_size  # Przekaż jako argument konstruktora
         )
-        ga.meta_population_size = pop_size  # Dodanie metadanych bezpośrednio do obiektu
         experiment_pop.add_algorithm(ga)
         
     for instance, name in instances:
@@ -574,9 +574,9 @@ def analyze_ga_parameters(
             generations=100,
             mutation_rate=mut_rate,
             crossover_type="OX",
-            store_convergence_history=True
+            store_convergence_history=True,
+            meta_mutation_rate=mut_rate  # Przekaż jako argument konstruktora
         )
-        ga.meta_mutation_rate = mut_rate  # Dodanie metadanych bezpośrednio do obiektu
         experiment_mut.add_algorithm(ga)
         
     for instance, name in instances:
@@ -602,9 +602,9 @@ def analyze_ga_parameters(
             generations=100,
             mutation_rate=0.05,
             crossover_type=cx_type,
-            store_convergence_history=True
+            store_convergence_history=True,
+            meta_crossover_type=cx_type  # Przekaż jako argument konstruktora
         )
-        ga.meta_crossover_type = cx_type  # Dodanie metadanych bezpośrednio do obiektu
         experiment_cx.add_algorithm(ga)
         
     for instance, name in instances:

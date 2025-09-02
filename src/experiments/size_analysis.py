@@ -66,11 +66,189 @@ def run_size_analysis(
     
     # Wizualizacja wyników
     print("Analyzing results...")
-    experiment.plot_distances()
-    experiment.plot_times()
+    plot_distances(experiment, output_dir)
+    plot_times(experiment, output_dir)
     analyze_scalability(experiment, output_dir)
     
     print("Size analysis completed!")
+
+def plot_distances(experiment: Experiment, output_dir: str) -> None:
+    """
+    Tworzy wykresy dystansów dla wszystkich algorytmów.
+    
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
+    
+    plots_dir = os.path.join(output_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+    
+    # 1. Wykres słupkowy średnich dystansów dla wszystkich algorytmów
+    plt.figure(figsize=(12, 8))
+    
+    # Grupuj po algorytmie
+    algorithm_distances = experiment.results.groupby('algorithm')['distance'].agg(['mean', 'std']).reset_index()
+    
+    plt.bar(
+        algorithm_distances['algorithm'],
+        algorithm_distances['mean'],
+        yerr=algorithm_distances['std'],
+        capsize=5
+    )
+    
+    plt.title('Average Tour Distance by Algorithm')
+    plt.xlabel('Algorithm')
+    plt.ylabel('Average Distance')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "average_distances.png"), dpi=300)
+    plt.close()
+    
+    # 2. Wykres pudełkowy dla dystansów
+    plt.figure(figsize=(12, 8))
+    
+    # Dodaj kolumnę 'algorithm_instance' dla czytelności na wykresie pudełkowym
+    box_data = experiment.results.copy()
+    
+    # Próbuj wyodrębnić rozmiar instancji, jeśli dostępny
+    try:
+        box_data['size'] = box_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
+        sns.boxplot(x='algorithm', y='distance', hue='size', data=box_data)
+        plt.title('Tour Distance Distribution by Algorithm and Instance Size')
+        plt.legend(title='Instance Size')
+    except:
+        sns.boxplot(x='algorithm', y='distance', data=box_data)
+        plt.title('Tour Distance Distribution by Algorithm')
+    
+    plt.xlabel('Algorithm')
+    plt.ylabel('Tour Distance')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "distance_boxplot.png"), dpi=300)
+    plt.close()
+    
+    # 3. Wykres rozrzutu dla różnych rozmiarów instancji
+    try:
+        plt.figure(figsize=(12, 8))
+        
+        scatter_data = experiment.results.copy()
+        scatter_data['size'] = scatter_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
+        
+        for algorithm in scatter_data['algorithm'].unique():
+            alg_data = scatter_data[scatter_data['algorithm'] == algorithm]
+            plt.scatter(alg_data['size'], alg_data['distance'], label=algorithm, alpha=0.7)
+            
+            # Dodaj linię trendu
+            sizes = alg_data['size'].unique()
+            avg_distances = [alg_data[alg_data['size'] == size]['distance'].mean() for size in sizes]
+            plt.plot(sizes, avg_distances, '--', alpha=0.5)
+        
+        plt.title('Tour Distance vs. Instance Size by Algorithm')
+        plt.xlabel('Instance Size (number of cities)')
+        plt.ylabel('Tour Distance')
+        plt.grid(True)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, "distance_by_size.png"), dpi=300)
+        plt.close()
+    except Exception as e:
+        print(f"Error creating scatter plot: {str(e)}")
+
+def plot_times(experiment: Experiment, output_dir: str) -> None:
+    """
+    Tworzy wykresy czasów wykonania dla wszystkich algorytmów.
+    
+    Args:
+        experiment: Eksperyment z wynikami
+        output_dir: Katalog na wyniki
+    """
+    if experiment.results.empty:
+        print("No results to analyze.")
+        return
+    
+    plots_dir = os.path.join(output_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+    
+    # 1. Wykres słupkowy średnich czasów wykonania
+    plt.figure(figsize=(12, 8))
+    
+    # Grupuj po algorytmie
+    algorithm_times = experiment.results.groupby('algorithm')['time'].agg(['mean', 'std']).reset_index()
+    
+    plt.bar(
+        algorithm_times['algorithm'],
+        algorithm_times['mean'],
+        yerr=algorithm_times['std'],
+        capsize=5
+    )
+    
+    plt.title('Average Computation Time by Algorithm')
+    plt.xlabel('Algorithm')
+    plt.ylabel('Average Time (s)')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "average_times.png"), dpi=300)
+    plt.close()
+    
+    # 2. Wykres pudełkowy dla czasów wykonania (skala logarytmiczna)
+    plt.figure(figsize=(12, 8))
+    
+    # Dodaj kolumnę 'algorithm_instance' dla czytelności na wykresie pudełkowym
+    box_data = experiment.results.copy()
+    
+    # Próbuj wyodrębnić rozmiar instancji, jeśli dostępny
+    try:
+        box_data['size'] = box_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
+        sns.boxplot(x='algorithm', y='time', hue='size', data=box_data)
+        plt.title('Computation Time Distribution by Algorithm and Instance Size')
+        plt.legend(title='Instance Size')
+    except:
+        sns.boxplot(x='algorithm', y='time', data=box_data)
+        plt.title('Computation Time Distribution by Algorithm')
+    
+    plt.xlabel('Algorithm')
+    plt.ylabel('Time (s)')
+    plt.yscale('log')
+    plt.xticks(rotation=45, ha='right')
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "time_boxplot_log.png"), dpi=300)
+    plt.close()
+    
+    # 3. Wykres rozrzutu dla różnych rozmiarów instancji (skala logarytmiczna)
+    try:
+        plt.figure(figsize=(12, 8))
+        
+        scatter_data = experiment.results.copy()
+        scatter_data['size'] = scatter_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
+        
+        for algorithm in scatter_data['algorithm'].unique():
+            alg_data = scatter_data[scatter_data['algorithm'] == algorithm]
+            plt.scatter(alg_data['size'], alg_data['time'], label=algorithm, alpha=0.7)
+            
+            # Dodaj linię trendu
+            sizes = alg_data['size'].unique()
+            avg_times = [alg_data[alg_data['size'] == size]['time'].mean() for size in sizes]
+            plt.plot(sizes, avg_times, '--', alpha=0.5)
+        
+        plt.title('Computation Time vs. Instance Size by Algorithm')
+        plt.xlabel('Instance Size (number of cities)')
+        plt.ylabel('Time (s)')
+        plt.yscale('log')
+        plt.grid(True)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, "time_by_size_log.png"), dpi=300)
+        plt.close()
+    except Exception as e:
+        print(f"Error creating scatter plot: {str(e)}")
 
 def add_appropriate_algorithms(experiment: Experiment, sizes: List[int]) -> None:
     """
@@ -80,19 +258,39 @@ def add_appropriate_algorithms(experiment: Experiment, sizes: List[int]) -> None
         experiment: Eksperyment, do którego dodajemy algorytmy
         sizes: Rozmiary instancji do testowania
     """
-    max_size = max(sizes)
-    
-    # Algorytmy dokładne tylko dla małych instancji
-    if min(sizes) <= 15:  # Tylko dla najmniejszych instancji
-        experiment.add_algorithm(HeldKarp())
-        experiment.add_algorithm(BranchAndBound())
+    # Algorytmy dokładne tylko dla małych instancji (≤ 15)
+    small_sizes = [size for size in sizes if size <= 15]
+    if small_sizes:
+        # Utwórz osobny eksperyment tylko dla małych instancji i algorytmów dokładnych
+        small_experiment = Experiment("exact_algorithms_small_instances")
+        small_experiment.save_dir = os.path.join(experiment.save_dir, "exact_small")
+        small_experiment.set_random_seed(experiment.random_seed)
+        small_experiment.set_time_limit(900)  # 15 minut dla algorytmów dokładnych
+        
+        # Dodaj tylko małe instancje
+        for instance, name in zip(experiment.instances, experiment.instance_names):
+            if any(f"euclidean_{size}_" in name for size in small_sizes):
+                small_experiment.add_instance(instance, name)
+        
+        # Dodaj algorytmy dokładne
+        small_experiment.add_algorithm(HeldKarp())
+        small_experiment.add_algorithm(BranchAndBound(time_limit=900))  # 15 minut limit
+        
+        # Uruchom eksperyment dla algorytmów dokładnych
+        if small_experiment.instances:
+            print("Running exact algorithms on small instances...")
+            small_experiment.run()
+            
+            # Dołącz wyniki do głównego eksperymentu
+            experiment.results = pd.concat([experiment.results, small_experiment.results], ignore_index=True)
+            experiment.solutions.extend(small_experiment.solutions)
     
     # Algorytmy heurystyczne dla wszystkich rozmiarów
     experiment.add_algorithm(NearestNeighbor(multi_start=True))
     experiment.add_algorithm(TwoOpt(random_restarts=3))
     
     # Metaheurystyki z parametrami dostosowanymi do rozmiaru
-    if max_size <= 30:
+    if max(sizes) <= 30:
         experiment.add_algorithm(SimulatedAnnealing(
             initial_temperature=100, 
             cooling_rate=0.95, 
@@ -109,7 +307,7 @@ def add_appropriate_algorithms(experiment: Experiment, sizes: List[int]) -> None
             generations=100, 
             mutation_rate=0.05
         ))
-    elif max_size <= 75:
+    elif max(sizes) <= 75:
         experiment.add_algorithm(SimulatedAnnealing(
             initial_temperature=1000, 
             cooling_rate=0.98, 

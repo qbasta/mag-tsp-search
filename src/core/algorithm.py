@@ -40,7 +40,7 @@ class TSPAlgorithm(ABC):
             TSPSolution: Znalezione rozwiązanie
         """
         start_time = time.time()
-        self.time_limit = time_limit
+        self.time_limit = min(time_limit, self.time_limit)  # Użyj niższego z limitów
         self.start_time = start_time
         
         # Wywołanie właściwej implementacji algorytmu
@@ -57,8 +57,18 @@ class TSPAlgorithm(ABC):
             
             # Dodaj informację, czy przekroczono limit czasu
             if "time_limit_exceeded" not in metadata:
-                metadata["time_limit_exceeded"] = time.time() - start_time > time_limit
+                metadata["time_limit_exceeded"] = time.time() - start_time > self.time_limit
                 
+            return solution
+        except TimeoutError as e:
+            end_time = time.time()
+            computation_time = end_time - start_time
+            
+            # Utwórz rozwiązanie z informacją o przekroczeniu limitu czasu
+            from src.core.solution import TSPSolution
+            dummy_tour = list(range(instance.dimension))
+            solution = TSPSolution(dummy_tour, instance)
+            solution.set_algorithm_info(self.name, computation_time, {"error": str(e), "time_limit_exceeded": True})
             return solution
         except Exception as e:
             end_time = time.time()
@@ -82,4 +92,4 @@ class TSPAlgorithm(ABC):
         Returns:
             tuple: (tour, metadata) - trasa i dodatkowe metadane
         """
-        pass
+        pass    
