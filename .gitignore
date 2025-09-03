@@ -30,10 +30,3 @@ ENV/
 .vscode/
 *.swp
 *.swo
-
-# Data and results
-data/results/*
-!data/results/.gitkeep
-
-# Jupyter Notebook
-.ipynb_checkpoints
