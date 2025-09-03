@@ -1,0 +1,28 @@
+algorithm,instance,run,distance,time
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_0,1,418.6829178473283,0.013183499999286141
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_0,2,462.09713551538226,0.01078129999950761
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_0,3,462.09713551538226,0.007077499998558778
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_0,1,382.0502850180152,0.17237219999879017
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_0,2,382.0502850180152,0.1857285000005504
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_0,3,382.0502850180152,0.18440220000047702
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_0,1,415.6436754779167,0.07227259999854141
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_0,2,408.45727678713973,0.08720790000006673
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_0,3,409.9608191182813,0.0676354999995965
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_1,1,367.5782061643623,0.0074606999987736344
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_1,2,367.5782061643623,0.011881700000230921
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_1,3,367.5782061643623,0.012872899998910725
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_1,1,367.5782061643623,0.1865112000014051
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_1,2,367.5782061643623,0.22058579999793437
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_1,3,367.5782061643623,0.21451140000135638
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_1,1,367.5782061643623,0.06503110000267043
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_1,2,367.5782061643623,0.06199389999892446
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_1,3,367.5782061643623,0.062484099998982856
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_2,1,442.2209061007223,0.007874700000684243
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_2,2,442.2209061007223,0.007342400000197813
+"Simulated Annealing (T=500, α=0.98)",euclidean_20_2,3,442.2209061007223,0.007229400001961039
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_2,1,394.3488143204167,0.18253600000025472
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_2,2,394.3488143204167,0.18455220000032568
+"Ant Colony (ants=15, α=1.5, β=3.0)",euclidean_20_2,3,394.3488143204167,0.18349049999960698
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_2,1,394.3488143204167,0.06629210000028252
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_2,2,394.34881432041675,0.061368599999696016
+"Genetic Algorithm (pop=50, mut=0.08, cx=OX)",euclidean_20_2,3,401.2405479072124,0.06110070000067935

@@ -1,0 +1,16 @@
+algorithm,instance,run,distance,time,meta_mutation_rate
+"Genetic Algorithm (pop=100, mut=0.01, cx=OX)",euclidean_20_0,,397.58689511478366,0.3872335000014573,0.01
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_0,,406.98277085501354,0.4345835000021907,0.05
+"Genetic Algorithm (pop=100, mut=0.1, cx=OX)",euclidean_20_0,,390.44540607090556,0.3664463000022806,0.1
+"Genetic Algorithm (pop=100, mut=0.2, cx=OX)",euclidean_20_0,,388.0953873742433,0.37111039999945206,0.2
+"Genetic Algorithm (pop=100, mut=0.3, cx=OX)",euclidean_20_0,,415.1791959355998,0.4049900999998499,0.3
+"Genetic Algorithm (pop=100, mut=0.01, cx=OX)",euclidean_20_1,,367.5782061643623,0.39856650000001537,0.01
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_1,,367.5782061643623,0.45137899999826914,0.05
+"Genetic Algorithm (pop=100, mut=0.1, cx=OX)",euclidean_20_1,,367.5782061643623,0.381317699997453,0.1
+"Genetic Algorithm (pop=100, mut=0.2, cx=OX)",euclidean_20_1,,367.5782061643623,0.38942279999901075,0.2
+"Genetic Algorithm (pop=100, mut=0.3, cx=OX)",euclidean_20_1,,367.5782061643623,0.4214397999967332,0.3
+"Genetic Algorithm (pop=100, mut=0.01, cx=OX)",euclidean_20_2,,394.3488143204167,0.40980209999906947,0.01
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_2,,394.3488143204167,0.42857010000079754,0.05
+"Genetic Algorithm (pop=100, mut=0.1, cx=OX)",euclidean_20_2,,394.3488143204167,0.39344209999762825,0.1
+"Genetic Algorithm (pop=100, mut=0.2, cx=OX)",euclidean_20_2,,394.34881432041675,0.2685197999999218,0.2
+"Genetic Algorithm (pop=100, mut=0.3, cx=OX)",euclidean_20_2,,394.3488143204167,0.407731799998146,0.3

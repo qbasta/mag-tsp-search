@@ -1,0 +1,73 @@
+algorithm,instance,run,distance,time,structure
+Nearest Neighbor,euclidean_50_0,,664.9992468817971,0.03054560000236961,euclidean
+2-opt,euclidean_50_0,,595.1652123552641,0.46739850000085426,euclidean
+"Simulated Annealing (T=1000, α=0.98)",euclidean_50_0,,746.7019938169341,0.05584100000123726,euclidean
+"Ant Colony (ants=20, α=1.0, β=3.0)",euclidean_50_0,,611.4722861561816,4.2379854999999225,euclidean
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_0,,630.9963642392433,1.5960034999989148,euclidean
+Christofides,euclidean_50_0,,643.284311277197,0.17840200000136974,euclidean
+Nearest Neighbor,cluster_50_0,,1693.5611247104082,0.032644700000673765,cluster
+2-opt,cluster_50_0,,1572.9489009105525,0.223195400001714,cluster
+"Simulated Annealing (T=1000, α=0.98)",cluster_50_0,,1864.8157047400668,0.03567729999849689,cluster
+"Ant Colony (ants=20, α=1.0, β=3.0)",cluster_50_0,,1633.2521897282397,3.92067329999918,cluster
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",cluster_50_0,,1662.7812049687777,1.5578545999997004,cluster
+Christofides,cluster_50_0,,1693.048868135391,0.17938329999742564,cluster
+Nearest Neighbor,grid_50_0,,736.6593130981122,0.060379300000931835,grid
+2-opt,grid_50_0,,650.7939901801657,0.7462493999992148,grid
+"Simulated Annealing (T=1000, α=0.98)",grid_50_0,,822.1667628732819,0.06614579999950365,grid
+"Ant Colony (ants=20, α=1.0, β=3.0)",grid_50_0,,683.7154200223289,6.5460353999988,grid
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",grid_50_0,,732.2993598913879,2.112717899999552,grid
+Christofides,grid_50_0,,697.0252073859588,0.30186890000186395,grid
+Nearest Neighbor,random_50_0,,inf,1.5400000847876072e-05,random
+2-opt,random_50_0,,inf,3.1299998227041215e-05,random
+"Simulated Annealing (T=1000, α=0.98)",random_50_0,,inf,8.600000001024455e-05,random
+"Ant Colony (ants=20, α=1.0, β=3.0)",random_50_0,,inf,8.990000060293823e-05,random
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",random_50_0,,inf,0.000378400000045076,random
+Christofides,random_50_0,,inf,0.0004726000006485265,random
+Nearest Neighbor,euclidean_50_1,,605.8650200441633,0.041524600001139333,euclidean
+2-opt,euclidean_50_1,,562.5583891980583,0.332561799998075,euclidean
+"Simulated Annealing (T=1000, α=0.98)",euclidean_50_1,,651.8746374538385,0.05812819999846397,euclidean
+"Ant Colony (ants=20, α=1.0, β=3.0)",euclidean_50_1,,587.1219848108987,3.937418199999229,euclidean
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_1,,600.3552242472392,1.5305419999967853,euclidean
+Christofides,euclidean_50_1,,625.3394733114384,0.1498250000004191,euclidean
+Nearest Neighbor,cluster_50_1,,1503.7462393373125,0.037788300000102026,cluster
+2-opt,cluster_50_1,,1468.3796216945784,0.23406420000173966,cluster
+"Simulated Annealing (T=1000, α=0.98)",cluster_50_1,,1623.0312018071454,0.02927819999968051,cluster
+"Ant Colony (ants=20, α=1.0, β=3.0)",cluster_50_1,,1495.362618609493,3.420895400002337,cluster
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",cluster_50_1,,1479.2178873121534,1.4436385999979393,cluster
+Christofides,cluster_50_1,,1494.8843037074482,0.15109120000124676,cluster
+Nearest Neighbor,grid_50_1,,689.0483774977623,0.06186870000237832,grid
+2-opt,grid_50_1,,634.0218995161723,0.7630941999996139,grid
+"Simulated Annealing (T=1000, α=0.98)",grid_50_1,,768.479679362354,0.042680999998992775,grid
+"Ant Colony (ants=20, α=1.0, β=3.0)",grid_50_1,,683.8878170754336,5.33279080000284,grid
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",grid_50_1,,687.8189264309241,1.4266332999977749,grid
+Christofides,grid_50_1,,720.7760204557169,0.23870979999992414,grid
+Nearest Neighbor,random_50_1,,inf,1.7300000763498247e-05,random
+2-opt,random_50_1,,inf,0.00015410000196425244,random
+"Simulated Annealing (T=1000, α=0.98)",random_50_1,,inf,0.00015920000078040175,random
+"Ant Colony (ants=20, α=1.0, β=3.0)",random_50_1,,inf,5.999999848427251e-05,random
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",random_50_1,,inf,0.00014739999824087135,random
+Christofides,random_50_1,,inf,0.00021049999850220047,random
+Nearest Neighbor,euclidean_50_2,,635.2860897548462,0.025162199999613222,euclidean
+2-opt,euclidean_50_2,,623.2255102383831,0.31908169999951497,euclidean
+"Simulated Annealing (T=1000, α=0.98)",euclidean_50_2,,697.5840995265695,0.035957399999460904,euclidean
+"Ant Colony (ants=20, α=1.0, β=3.0)",euclidean_50_2,,621.7208676226766,4.053530100001808,euclidean
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_2,,634.6997460702664,1.680243300001166,euclidean
+Christofides,euclidean_50_2,,688.1199371654219,0.1372518999996828,euclidean
+Nearest Neighbor,cluster_50_2,,1661.7706992558105,0.023328299997956492,cluster
+2-opt,cluster_50_2,,1628.8386715815864,0.22915269999793964,cluster
+"Simulated Annealing (T=1000, α=0.98)",cluster_50_2,,2110.2339962419887,0.035693400001036935,cluster
+"Ant Colony (ants=20, α=1.0, β=3.0)",cluster_50_2,,1651.4547077331213,4.320283099998051,cluster
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",cluster_50_2,,1645.7006113953676,1.6838715999983833,cluster
+Christofides,cluster_50_2,,1727.9737709451817,0.14399000000048545,cluster
+Nearest Neighbor,grid_50_2,,727.2549143307298,0.07385040000008303,grid
+2-opt,grid_50_2,,646.3629627575353,0.8971727000025567,grid
+"Simulated Annealing (T=1000, α=0.98)",grid_50_2,,770.8620661901004,0.06687790000069072,grid
+"Ant Colony (ants=20, α=1.0, β=3.0)",grid_50_2,,685.1971029709156,6.991406400000415,grid
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",grid_50_2,,708.2846717212042,2.2739400999998907,grid
+Christofides,grid_50_2,,742.5762601180006,0.3626813000009861,grid
+Nearest Neighbor,random_50_2,,inf,3.0400002287933603e-05,random
+2-opt,random_50_2,,inf,5.7100001868093386e-05,random
+"Simulated Annealing (T=1000, α=0.98)",random_50_2,,inf,9.890000001178123e-05,random
+"Ant Colony (ants=20, α=1.0, β=3.0)",random_50_2,,inf,0.0001658000001043547,random
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",random_50_2,,inf,0.0003141000015602913,random
+Christofides,random_50_2,,inf,0.0006500000017695129,random
