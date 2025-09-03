@@ -78,17 +78,25 @@ class TSPInstance:
         Oblicza całkowitą długość trasy.
         
         Args:
-            tour: Lista indeksów miast reprezentująca trasę
+            tour: Lista miast w kolejności odwiedzania
             
         Returns:
             float: Całkowita długość trasy
         """
-        total = 0
+        if not tour:
+            return float('inf')  # Pusta trasa ma nieskończoną długość
+            
         n = len(tour)
+        if n == 1:
+            return 0  # Trasa z jednym miastem ma długość 0
+            
+        total = 0
         for i in range(n - 1):
             total += self.get_distance(tour[i], tour[i + 1])
-        # Dodaj odległość z ostatniego miasta do pierwszego (zamknięty cykl)
+            
+        # Dodaj odległość powrotu do miasta początkowego
         total += self.get_distance(tour[n - 1], tour[0])
+            
         return total
         
     def plot(self, tour: Optional[List[int]] = None) -> None:

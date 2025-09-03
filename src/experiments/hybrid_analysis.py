@@ -98,7 +98,7 @@ def run_hybrid_analysis(
 
 def analyze_hybrid_performance(experiment: Experiment, output_dir: str) -> None:
     """
-    Analizuje wydajność algorytmów hybrydowych w porównaniu do bazowych.
+    Analizuje wydajność algorytmów hybrydowych.
     
     Args:
         experiment: Eksperyment z wynikami
@@ -112,147 +112,126 @@ def analyze_hybrid_performance(experiment: Experiment, output_dir: str) -> None:
     plots_dir = os.path.join(output_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
     
-    # 1. Porównanie jakości rozwiązań
+    # Dodaj typ instancji
+    experiment.results['instance_type'] = experiment.results['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
+    
+    # Przygotuj podsumowanie
+    summary = experiment.summarize()
+    summary['instance_type'] = summary['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
+    
+    # 1. Porównanie średniego dystansu dla każdego algorytmu i typu instancji
     plt.figure(figsize=(14, 10))
     
-    # Grupuj po instancji i algorytmie
-    summary = experiment.summarize()
+    # Zmienione z 'avg_distance' na 'distance_mean'
+    sns.barplot(x='instance_type', y='distance_mean', hue='algorithm', data=summary)
     
-    # Rozpoznaj typ instancji (euklidesowa/klastry)
-    summary['instance_type'] = summary['instance'].apply(
-        lambda x: 'Clustered' if 'cluster' in x else 'Euclidean'
-    )
-    
-    # Twórz wykres słupkowy z grupowaniem po typie instancji i algorytmie
-    sns.barplot(x='instance_type', y='avg_distance', hue='algorithm', data=summary)
-    plt.title('Hybrid vs Base Algorithms - Solution Quality')
+    plt.title('Average Tour Distance by Instance Type and Algorithm')
     plt.xlabel('Instance Type')
     plt.ylabel('Average Distance')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(axis='y')
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "hybrid_quality_comparison.png"), dpi=300)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.savefig(os.path.join(plots_dir, "hybrid_distance_comparison.png"), dpi=300)
     plt.close()
     
-    # 2. Porównanie czasów obliczeń
+    # 2. Porównanie średniego czasu obliczeniowego
     plt.figure(figsize=(14, 10))
     
-    sns.barplot(x='instance_type', y='avg_time', hue='algorithm', data=summary)
-    plt.title('Hybrid vs Base Algorithms - Computation Time')
+    # Zmienione z 'avg_time' na 'time_mean'
+    sns.barplot(x='instance_type', y='time_mean', hue='algorithm', data=summary)
+    
+    plt.title('Average Computation Time by Instance Type and Algorithm')
     plt.xlabel('Instance Type')
     plt.ylabel('Average Time (s)')
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(axis='y')
     plt.tight_layout()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.savefig(os.path.join(plots_dir, "hybrid_time_comparison.png"), dpi=300)
     plt.close()
     
-    # 3. Analiza usprawnień - o ile algorytm hybrydowy jest lepszy od bazowych
-    # Oblicz procentową poprawę NN-SA względem NN i SA
-    improvements = []
+    # 3. Relatywna wydajność hybryd w porównaniu do ich składników
+    plt.figure(figsize=(14, 10))
     
-    for instance in summary['instance'].unique():
-        instance_data = summary[summary['instance'] == instance]
+    # Tworzenie DataFrame dla porównania relatywnej wydajności
+    relative_data = []
+    
+    for inst_type in summary['instance_type'].unique():
+        type_data = summary[summary['instance_type'] == inst_type]
         
-        # Znajdź algorytmy
-        nn_data = instance_data[instance_data['algorithm'] == 'Nearest Neighbor']
-        sa_data = instance_data[instance_data['algorithm'] == 'Simulated Annealing']
-        hybrid_data = instance_data[instance_data['algorithm'] == 'NN-SA Hybrid']
+        # Znajdź najlepszy wynik dla każdego typu instancji
+        best_distance = type_data['distance_mean'].min()
         
-        if not nn_data.empty and not sa_data.empty and not hybrid_data.empty:
-            nn_dist = nn_data['avg_distance'].iloc[0]
-            sa_dist = sa_data['avg_distance'].iloc[0]
-            hybrid_dist = hybrid_data['avg_distance'].iloc[0]
+        for alg in type_data['algorithm'].unique():
+            alg_data = type_data[type_data['algorithm'] == alg]
             
-            # Procentowa poprawa względem NN
-            nn_improvement = (nn_dist - hybrid_dist) / nn_dist * 100
+            # Zmienione z 'avg_distance' na 'distance_mean'
+            rel_dist = alg_data['distance_mean'].iloc[0] / best_distance
             
-            # Procentowa poprawa względem SA
-            sa_improvement = (sa_dist - hybrid_dist) / sa_dist * 100
-            
-            # Sprawdź metadane hybrydowego algorytmu, jeśli są dostępne
-            hybrid_metadata = {}
-            if 'meta_nn_distance' in experiment.results.columns:
-                hybrid_rows = experiment.results[
-                    (experiment.results['instance'] == instance) & 
-                    (experiment.results['algorithm'] == 'NN-SA Hybrid')
-                ]
-                if not hybrid_rows.empty:
-                    for col in hybrid_rows.columns:
-                        if col.startswith('meta_'):
-                            hybrid_metadata[col.replace('meta_', '')] = hybrid_rows[col].mean()
-            
-            improvements.append({
-                'instance': instance,
-                'instance_type': 'Clustered' if 'cluster' in instance else 'Euclidean',
-                'nn_improvement': nn_improvement,
-                'sa_improvement': sa_improvement,
-                'nn_distance': nn_dist,
-                'sa_distance': sa_dist,
-                'hybrid_distance': hybrid_dist,
-                **{k: v for k, v in hybrid_metadata.items()}
+            relative_data.append({
+                'instance_type': inst_type,
+                'algorithm': alg,
+                'relative_distance': rel_dist
             })
     
-    if improvements:
-        # Zapisz dane o usprawnieniach
-        improvements_df = pd.DataFrame(improvements)
-        improvements_df.to_csv(os.path.join(output_dir, "hybrid_improvements.csv"), index=False)
+    rel_df = pd.DataFrame(relative_data)
+    
+    # Rysowanie wykresu
+    sns.barplot(x='instance_type', y='relative_distance', hue='algorithm', data=rel_df)
+    
+    plt.title('Relative Performance by Instance Type and Algorithm')
+    plt.xlabel('Instance Type')
+    plt.ylabel('Relative Distance (to best)')
+    plt.axhline(y=1.0, color='r', linestyle='-', alpha=0.5)
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.savefig(os.path.join(plots_dir, "hybrid_relative_performance.png"), dpi=300)
+    plt.close()
+    
+    # 4. Przyspieszenie hybrydowych algorytmów w porównaniu do składowych
+    plt.figure(figsize=(14, 10))
+    
+    # Określ bazowy algorytm dla każdego hybrydowego
+    hybrid_base_map = {
+        'NN-SA Hybrid': 'Simulated Annealing (T=1000, α=0.98)'
+    }
+    
+    speedup_data = []
+    
+    for inst_type in summary['instance_type'].unique():
+        type_data = summary[summary['instance_type'] == inst_type]
         
-        # Wykres procentowej poprawy
-        plt.figure(figsize=(12, 8))
+        for hybrid, base in hybrid_base_map.items():
+            if hybrid in type_data['algorithm'].values and base in type_data['algorithm'].values:
+                hybrid_time = type_data[type_data['algorithm'] == hybrid]['time_mean'].iloc[0]
+                base_time = type_data[type_data['algorithm'] == base]['time_mean'].iloc[0]
+                
+                speedup = base_time / hybrid_time if hybrid_time > 0 else 0
+                
+                speedup_data.append({
+                    'instance_type': inst_type,
+                    'hybrid': hybrid,
+                    'speedup': speedup
+                })
+    
+    if speedup_data:
+        speedup_df = pd.DataFrame(speedup_data)
         
-        # Średnia poprawa dla każdego typu instancji
-        improvement_summary = improvements_df.groupby('instance_type').agg({
-            'nn_improvement': 'mean',
-            'sa_improvement': 'mean'
-        }).reset_index()
+        sns.barplot(x='instance_type', y='speedup', hue='hybrid', data=speedup_df)
         
-        # Przekształć dane do formatu długiego dla seaborn
-        improvement_long = pd.melt(
-            improvement_summary, 
-            id_vars=['instance_type'],
-            value_vars=['nn_improvement', 'sa_improvement'],
-            var_name='compared_to',
-            value_name='improvement_percent'
-        )
-        
-        # Zamień nazwy algorytmów na bardziej czytelne
-        improvement_long['compared_to'] = improvement_long['compared_to'].map({
-            'nn_improvement': 'vs Nearest Neighbor',
-            'sa_improvement': 'vs Simulated Annealing'
-        })
-        
-        sns.barplot(x='instance_type', y='improvement_percent', hue='compared_to', data=improvement_long)
-        plt.title('Improvement of Hybrid Algorithm vs Base Algorithms')
+        plt.title('Speedup of Hybrid Algorithms Compared to Base Algorithms')
         plt.xlabel('Instance Type')
-        plt.ylabel('Average Improvement (%)')
+        plt.ylabel('Speedup Factor (>1 is faster)')
+        plt.axhline(y=1.0, color='r', linestyle='-', alpha=0.5)
         plt.grid(axis='y')
-        plt.savefig(os.path.join(plots_dir, "hybrid_improvement_percent.png"), dpi=300)
+        plt.tight_layout()
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.savefig(os.path.join(plots_dir, "hybrid_speedup.png"), dpi=300)
         plt.close()
-        
-        # 4. Analiza pośrednich wyników algorytmu hybrydowego (jeśli są dostępne)
-        if 'nn_distance' in improvements_df.columns and 'hybrid_distance' in improvements_df.columns:
-            plt.figure(figsize=(12, 8))
-            
-            # Dla każdej instancji, pokaż wynik NN, SA i hybrydowy
-            for i, instance in enumerate(improvements_df['instance']):
-                row = improvements_df[improvements_df['instance'] == instance].iloc[0]
-                
-                # Narysuj punkty dla każdego etapu algorytmu hybrydowego
-                plt.scatter([i, i, i], [row['nn_distance'], row['sa_distance'], row['hybrid_distance']], 
-                           c=['blue', 'green', 'red'], s=100)
-                
-                # Połącz punkty linią, aby pokazać poprawę
-                plt.plot([i, i, i], [row['nn_distance'], row['sa_distance'], row['hybrid_distance']], 
-                        'k-', alpha=0.5)
-            
-            plt.xticks(range(len(improvements_df)), improvements_df['instance'], rotation=90)
-            plt.ylabel('Distance')
-            plt.title('Step-by-step Improvement in Hybrid Algorithm')
-            plt.grid(axis='y')
-            plt.legend(['Improvement Path', 'NN Solution', 'SA Solution', 'Hybrid Solution'], 
-                      loc='upper right')
-            plt.tight_layout()
-            plt.savefig(os.path.join(plots_dir, "hybrid_stepwise_improvement.png"), dpi=300)
-            plt.close()
+    
+    # Zapisz wyniki do pliku
+    experiment.results.to_csv(os.path.join(output_dir, "results.csv"), index=False)
+    summary.to_csv(os.path.join(output_dir, "summary.csv"), index=False)
 
 def compare_hybrid_across_sizes(output_dir: str, sizes: List[int]) -> None:
     """

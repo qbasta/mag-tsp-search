@@ -88,20 +88,66 @@ def generate_cluster_instance(
     
     return TSPInstance(name).from_coordinates(coordinates)
 
-def generate_asymmetric_instance(
-    n: int, 
-    min_dist: float = 1.0,
-    max_dist: float = 100.0,
+def generate_grid_instance(
+    width: int,
+    height: int,
+    noise_level: float = 0.0,
     seed: Optional[int] = None,
     name: Optional[str] = None
 ) -> TSPInstance:
     """
-    Generuje asymetryczną instancję TSP (gdzie d(i,j) != d(j,i)).
+    Generuje instancję TSP z miastami rozmieszczonymi na siatce.
+    
+    Args:
+        width: Szerokość siatki (liczba kolumn)
+        height: Wysokość siatki (liczba wierszy)
+        noise_level: Poziom szumu (0.0-1.0) - dodaje losowe zaburzenie do siatki
+        seed: Ziarno generatora liczb losowych
+        name: Nazwa instancji (opcjonalnie)
+        
+    Returns:
+        TSPInstance: Wygenerowana instancja
+    """
+    if seed is not None:
+        np.random.seed(seed)
+        
+    n = width * height
+    
+    if name is None:
+        name = f"grid_{width}x{height}"
+    
+    coordinates = []
+    
+    # Generowanie punktów na siatce
+    for i in range(height):
+        for j in range(width):
+            # Bazowe współrzędne na siatce
+            x = j * 10
+            y = i * 10
+            
+            # Dodaj losowy szum, jeśli potrzeba
+            if noise_level > 0:
+                x += np.random.uniform(-5 * noise_level, 5 * noise_level)
+                y += np.random.uniform(-5 * noise_level, 5 * noise_level)
+            
+            coordinates.append((x, y))
+    
+    return TSPInstance(name).from_coordinates(coordinates)
+
+def generate_random_instance(
+    n: int, 
+    min_distance: float = 1.0, 
+    max_distance: float = 100.0, 
+    seed: Optional[int] = None,
+    name: Optional[str] = None
+) -> TSPInstance:
+    """
+    Generuje instancję TSP z losowymi odległościami, które nie muszą spełniać nierówności trójkąta.
     
     Args:
         n: Liczba miast
-        min_dist: Minimalna odległość
-        max_dist: Maksymalna odległość
+        min_distance: Minimalna odległość między miastami
+        max_distance: Maksymalna odległość między miastami
         seed: Ziarno generatora liczb losowych
         name: Nazwa instancji (opcjonalnie)
         
@@ -112,12 +158,19 @@ def generate_asymmetric_instance(
         np.random.seed(seed)
         
     if name is None:
-        name = f"asymmetric_{n}"
-        
-    # Generowanie losowych odległości
-    distances = np.random.uniform(min_dist, max_dist, size=(n, n))
-    np.fill_diagonal(distances, 0)  # Zeruj przekątną
+        name = f"random_{n}"
     
-    # Uwaga: nie wykonujemy symetryzacji macierzy
+    # Generowanie losowej macierzy odległości
+    distances = np.random.uniform(min_distance, max_distance, (n, n))
     
-    return TSPInstance(name).from_distance_matrix(distances)
+    # Upewnienie się, że odległość z miasta do niego samego wynosi 0
+    np.fill_diagonal(distances, 0)
+    
+    # Symetryzacja macierzy (taka sama odległość w obie strony)
+    distances = (distances + distances.T) / 2
+    
+    instance = TSPInstance(name)
+    instance.distances = distances
+    instance.n = n
+    
+    return instance

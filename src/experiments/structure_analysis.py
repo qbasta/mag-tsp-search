@@ -5,7 +5,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import List, Dict, Any, Optional, Tuple
 from src.core.instance import TSPInstance
-from src.generators.generators import generate_euclidean_instance, generate_cluster_instance
+from src.generators.generators import (
+    generate_euclidean_instance, 
+    generate_cluster_instance, 
+    generate_grid_instance, 
+    generate_random_instance
+)
 from src.algorithms.exact.branch_and_bound import BranchAndBound
 from src.algorithms.heuristics.nearest_neighbor import NearestNeighbor
 from src.algorithms.heuristics.two_opt import TwoOpt
@@ -17,7 +22,7 @@ from src.experiments.experiment import Experiment
 
 def run_structure_analysis(
     output_dir: str = "data/results/structure",
-    sizes: List[int] = [20, 50],
+    sizes: List[int] = [10, 20, 30, 50],
     runs: int = 3,
     seed: int = 42
 ) -> None:
@@ -27,58 +32,60 @@ def run_structure_analysis(
     Args:
         output_dir: Katalog na wyniki
         sizes: Rozmiary instancji do testowania
-        runs: Liczba uruchomień dla każdej kombinacji
+        runs: Liczba uruchomień dla każdego typu instancji
         seed: Ziarno generatora liczb losowych
     """
     # Utwórz katalog na wyniki
     os.makedirs(output_dir, exist_ok=True)
     
-    # Zdefiniuj limity czasu dla każdego rozmiaru
-    time_limits = {
-        20: 300,   # 5 min dla 20 miast
-        50: 600    # 10 min dla 50 miast
-    }
-    
-    # Różne struktury grafów do testowania
-    structures = [
-        {"name": "random", "generator": generate_euclidean_instance, "params": {}},
-        {"name": "cluster_2", "generator": generate_cluster_instance, "params": {"num_clusters": 2}},
-        {"name": "cluster_5", "generator": generate_cluster_instance, "params": {"num_clusters": 5}},
-        {"name": "cluster_10", "generator": generate_cluster_instance, "params": {"num_clusters": 10, "cluster_size": 5.0}}
-    ]
-    
-    # Dla każdego rozmiaru
+    # Dla każdego rozmiaru instancji
     for size in sizes:
-        print(f"Analyzing structure impact for instances of size {size}")
+        print(f"Analyzing structure impact for size {size}...")
         
         # Utwórz eksperyment
-        experiment = Experiment(f"structure_size_{size}")
+        experiment = Experiment(f"structure_impact_{size}")
         experiment.save_dir = os.path.join(output_dir, f"size_{size}")
         experiment.set_random_seed(seed)
-        experiment.set_time_limit(time_limits.get(size, 300))
         
-        # Dodaj algorytmy
+        # Dodaj instancje o różnej strukturze
+        for i in range(runs):
+            current_seed = seed + i*100
+            
+            # 1. Euklidesowe (losowe punkty na płaszczyźnie)
+            euclidean = generate_euclidean_instance(size, seed=current_seed)
+            experiment.add_instance(euclidean, f"euclidean_{size}_{i}")
+            
+            # 2. Klastry (skupiska punktów)
+            clusters = generate_cluster_instance(
+                size, 
+                num_clusters=10, 
+                cluster_size=size//10 if size >= 10 else 1,
+                seed=current_seed
+            )
+            experiment.add_instance(clusters, f"cluster_{size}_{i}")
+            
+            # 3. Siatka (punkty na regularnej siatce)
+            grid_size = int(np.ceil(np.sqrt(size)))
+            grid = generate_grid_instance(
+                grid_size, 
+                grid_size, 
+                noise_level=0.2, 
+                seed=current_seed
+            )
+            experiment.add_instance(grid, f"grid_{size}_{i}")
+            
+            # 4. Losowe odległości (nie spełniają nierówności trójkąta)
+            random_instance = generate_random_instance(size, seed=current_seed)
+            experiment.add_instance(random_instance, f"random_{size}_{i}")
+        
+        # Dodaj odpowiednie algorytmy
         add_appropriate_algorithms(experiment, size)
         
-        # Dodaj instancje różnych struktur
-        for structure in structures:
-            for i in range(runs):
-                instance = structure["generator"](
-                    size, 
-                    seed=seed+i*100+size,
-                    **structure["params"]
-                )
-                experiment.add_instance(instance, f"{structure['name']}_{size}_{i}")
-        
         # Uruchom eksperyment
-        print(f"  Running experiment for size {size}...")
         experiment.set_num_runs(1)  # Jeden przebieg, bo już mamy wiele instancji
         experiment.run()
         
-        # Wizualizacja wyników
-        print(f"  Analyzing results for size {size}...")
-        experiment.plot_distances()
-        experiment.plot_times()
+        # Analizuj wyniki
         analyze_structure_impact(experiment, os.path.join(output_dir, f"size_{size}"))
     
     # Analiza porównawcza między różnymi rozmiarami
@@ -165,112 +172,72 @@ def analyze_structure_impact(experiment: Experiment, output_dir: str) -> None:
     summary = experiment.summarize()
     summary['structure'] = summary['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
     
-    # Twórz wykres słupkowy z grupowaniem po strukturze i algorytmie
-    sns.barplot(x='structure', y='avg_distance', hue='algorithm', data=summary)
-    plt.title('Impact of Graph Structure on Solution Quality')
-    plt.xlabel('Graph Structure')
+    # Zmienione z 'avg_distance' na 'distance_mean' - to jest poprawka
+    sns.barplot(x='structure', y='distance_mean', hue='algorithm', data=summary)
+    
+    plt.title('Average Tour Distance by Structure and Algorithm')
+    plt.xlabel('Structure Type')
     plt.ylabel('Average Distance')
     plt.xticks(rotation=45)
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.grid(axis='y')
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "structure_quality_comparison.png"), dpi=300)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.savefig(os.path.join(plots_dir, "distance_by_structure.png"), dpi=300)
     plt.close()
     
     # 2. Czas obliczeń w zależności od struktury grafu i algorytmu
     plt.figure(figsize=(14, 10))
     
-    sns.barplot(x='structure', y='avg_time', hue='algorithm', data=summary)
-    plt.title('Impact of Graph Structure on Computation Time')
-    plt.xlabel('Graph Structure')
+    # Zmienione z 'avg_time' na 'time_mean' - to jest poprawka
+    sns.barplot(x='structure', y='time_mean', hue='algorithm', data=summary)
+    
+    plt.title('Average Computation Time by Structure and Algorithm')
+    plt.xlabel('Structure Type')
     plt.ylabel('Average Time (s)')
     plt.xticks(rotation=45)
+    plt.grid(axis='y')
+    plt.tight_layout()
     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "structure_time_comparison.png"), dpi=300)
+    plt.savefig(os.path.join(plots_dir, "time_by_structure.png"), dpi=300)
     plt.close()
     
-    # 3. Mapa ciepła wydajności względnej
-    plt.figure(figsize=(12, 8))
-    
-    # Znormalizuj odległości dla każdego algorytmu (względem najlepszej struktury)
-    normalized_data = []
-    
-    for algorithm in summary['algorithm'].unique():
-        alg_data = summary[summary['algorithm'] == algorithm]
-        min_dist = alg_data['avg_distance'].min()
-        
-        for _, row in alg_data.iterrows():
-            normalized_data.append({
-                'algorithm': algorithm,
-                'structure': row['structure'],
-                'relative_performance': row['avg_distance'] / min_dist
-            })
-    
-    # Utwórz pivot table dla mapy ciepła
-    pivot_data = pd.DataFrame(normalized_data).pivot(
-        index='algorithm', 
-        columns='structure', 
-        values='relative_performance'
-    )
-    
-    # Mapa ciepła
-    sns.heatmap(pivot_data, annot=True, cmap='viridis_r', fmt=".2f")
-    plt.title('Relative Performance by Algorithm and Graph Structure')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "structure_relative_performance_heatmap.png"), dpi=300)
-    plt.close()
-    
-    # 4. Analiza dla każdego algorytmu
-    for algorithm in summary['algorithm'].unique():
-        plt.figure(figsize=(10, 6))
-        
-        alg_data = summary[summary['algorithm'] == algorithm]
-        
-        plt.bar(alg_data['structure'], alg_data['avg_distance'], yerr=alg_data['std_distance'])
-        plt.title(f'Impact of Graph Structure on {algorithm}')
-        plt.xlabel('Graph Structure')
-        plt.ylabel('Average Distance')
-        plt.xticks(rotation=45)
-        plt.grid(axis='y')
-        plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, f"{algorithm.replace(' ', '_').lower()}_structure_comparison.png"), dpi=300)
-        plt.close()
-    
-    # 5. Rankingowanie algorytmów dla każdej struktury
-    rankings = []
-    
-    for structure in summary['structure'].unique():
-        structure_data = summary[summary['structure'] == structure]
-        
-        # Sortuj algorytmy według średniej odległości
-        rank = 1
-        for _, row in structure_data.sort_values('avg_distance').iterrows():
-            rankings.append({
-                'structure': structure,
-                'algorithm': row['algorithm'],
-                'avg_distance': row['avg_distance'],
-                'rank': rank
-            })
-            rank += 1
-    
-    # Zapisz ranking do pliku
-    ranking_df = pd.DataFrame(rankings)
-    ranking_df.to_csv(os.path.join(output_dir, "algorithm_rankings_by_structure.csv"), index=False)
-    
-    # 6. Wizualizacja rankingów
+    # 3. Wykres pudełkowy dla dystansów (wszystkie wyniki, nie tylko średnie)
     plt.figure(figsize=(14, 10))
     
-    # Twórz mapę ciepła rankingów
-    pivot_rankings = ranking_df.pivot(index='algorithm', columns='structure', values='rank')
-    sns.heatmap(pivot_rankings, annot=True, cmap='viridis_r', fmt=".0f")
-    plt.title('Algorithm Rankings by Graph Structure (1 = best)')
+    sns.boxplot(x='structure', y='distance', hue='algorithm', data=experiment.results)
+    
+    plt.title('Distance Distribution by Structure and Algorithm')
+    plt.xlabel('Structure Type')
+    plt.ylabel('Distance')
+    plt.xticks(rotation=45)
+    plt.grid(axis='y')
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "structure_rankings_heatmap.png"), dpi=300)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.savefig(os.path.join(plots_dir, "distance_boxplot.png"), dpi=300)
     plt.close()
+    
+    # 4. Wykres pudełkowy dla czasów (wszystkie wyniki, nie tylko średnie)
+    plt.figure(figsize=(14, 10))
+    
+    sns.boxplot(x='structure', y='time', hue='algorithm', data=experiment.results)
+    
+    plt.title('Computation Time Distribution by Structure and Algorithm')
+    plt.xlabel('Structure Type')
+    plt.ylabel('Time (s)')
+    plt.xticks(rotation=45)
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.savefig(os.path.join(plots_dir, "time_boxplot.png"), dpi=300)
+    plt.close()
+    
+    # Zapisz wyniki do pliku
+    experiment.results.to_csv(os.path.join(output_dir, "results.csv"), index=False)
+    summary.to_csv(os.path.join(output_dir, "summary.csv"), index=False)
 
 def compare_structure_impact_across_sizes(output_dir: str, sizes: List[int]) -> None:
     """
-    Porównuje wpływ struktury grafu dla różnych rozmiarów instancji.
+    Analizuje porównawczo wpływ struktury grafu na różne rozmiary instancji.
     
     Args:
         output_dir: Katalog z wynikami
@@ -280,117 +247,120 @@ def compare_structure_impact_across_sizes(output_dir: str, sizes: List[int]) -> 
     plots_dir = os.path.join(output_dir, "comparative_plots")
     os.makedirs(plots_dir, exist_ok=True)
     
-    # Wczytaj wyniki dla różnych rozmiarów
-    all_results = []
+    # Zbierz wyniki ze wszystkich rozmiarów
+    all_results = pd.DataFrame()
+    all_summaries = pd.DataFrame()
     
     for size in sizes:
         size_dir = os.path.join(output_dir, f"size_{size}")
-        results_path = os.path.join(size_dir, f"structure_size_{size}_results.csv")
         
-        if os.path.exists(results_path):
-            df = pd.read_csv(results_path)
-            df['size'] = size
-            all_results.append(df)
+        # Sprawdź, czy istnieją pliki z wynikami
+        results_file = os.path.join(size_dir, "results.csv")
+        summary_file = os.path.join(size_dir, "summary.csv")
+        
+        if os.path.exists(results_file):
+            results = pd.read_csv(results_file)
+            results['size'] = size
+            all_results = pd.concat([all_results, results], ignore_index=True)
+        
+        if os.path.exists(summary_file):
+            summary = pd.read_csv(summary_file)
+            summary['size'] = size
+            all_summaries = pd.concat([all_summaries, summary], ignore_index=True)
     
-    if not all_results:
-        print("No results found for cross-size comparison.")
+    if all_results.empty or all_summaries.empty:
+        print("No data to analyze.")
         return
-        
-    # Połącz wszystkie wyniki
-    combined_df = pd.concat(all_results)
     
-    # Ekstrahuj strukturę grafu z nazwy instancji
-    combined_df['structure'] = combined_df['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
+    # Dodaj kolumnę struktura (jeśli nie ma)
+    if 'structure' not in all_results.columns:
+        all_results['structure'] = all_results['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
     
-    # 1. Wpływ struktury i rozmiaru na jakość rozwiązań (dla wspólnych algorytmów)
-    # Znajdź algorytmy, które występują we wszystkich rozmiarach
-    common_algorithms = set.intersection(*[set(df['algorithm']) for df in all_results])
+    if 'structure' not in all_summaries.columns:
+        all_summaries['structure'] = all_summaries['instance'].str.extract(r'^(\w+)_\d+_\d+').iloc[:, 0]
     
-    if common_algorithms:
-        # Agreguj wyniki dla wspólnych algorytmów
-        filtered_df = combined_df[combined_df['algorithm'].isin(common_algorithms)]
+    # 1. Interakcja między strukturą a rozmiarem dla każdego algorytmu (wykres cieplny)
+    # Dla każdego algorytmu
+    for algorithm in all_summaries['algorithm'].unique():
+        plt.figure(figsize=(12, 8))
         
-        # Grupuj po algorytmie, rozmiarze i strukturze
-        summary = filtered_df.groupby(['algorithm', 'size', 'structure']).agg({
-            'distance': ['mean', 'std'],
-            'time': ['mean', 'std']
-        }).reset_index()
+        # Filtruj dane dla algorytmu
+        alg_data = all_summaries[all_summaries['algorithm'] == algorithm]
         
-        summary.columns = ['algorithm', 'size', 'structure', 
-                          'avg_distance', 'std_distance', 
-                          'avg_time', 'std_time']
+        # Utwórz macierz danych do heat mapy
+        pivot_data = alg_data.pivot_table(
+            values='distance_mean', 
+            index='size', 
+            columns='structure'
+        )
         
-        # Dla każdego algorytmu, utwórz wykres wpływu struktury w zależności od rozmiaru
-        for algorithm in common_algorithms:
-            plt.figure(figsize=(12, 8))
-            
-            alg_data = summary[summary['algorithm'] == algorithm]
-            
-            # Grupuj po strukturze
-            for structure in alg_data['structure'].unique():
-                structure_data = alg_data[alg_data['structure'] == structure]
-                plt.plot(structure_data['size'], structure_data['avg_distance'], 'o-', label=structure)
-            
-            plt.title(f'Impact of Size and Structure on {algorithm}')
-            plt.xlabel('Instance Size')
-            plt.ylabel('Average Distance')
-            plt.grid(True)
-            plt.legend()
-            plt.tight_layout()
-            plt.savefig(os.path.join(plots_dir, f"{algorithm.replace(' ', '_').lower()}_size_structure_comparison.png"), dpi=300)
-            plt.close()
-            
-            # Podobny wykres dla czasu
-            plt.figure(figsize=(12, 8))
-            
-            for structure in alg_data['structure'].unique():
-                structure_data = alg_data[alg_data['structure'] == structure]
-                plt.plot(structure_data['size'], structure_data['avg_time'], 'o-', label=structure)
-            
-            plt.title(f'Computation Time by Size and Structure - {algorithm}')
-            plt.xlabel('Instance Size')
-            plt.ylabel('Average Time (s)')
-            plt.grid(True)
-            plt.legend()
-            plt.yscale('log')  # Skala logarytmiczna dla czasu
-            plt.tight_layout()
-            plt.savefig(os.path.join(plots_dir, f"{algorithm.replace(' ', '_').lower()}_size_structure_time.png"), dpi=300)
-            plt.close()
+        # Stwórz heat mapę
+        sns.heatmap(pivot_data, annot=True, fmt=".1f", cmap="YlGnBu")
         
-        # 2. Wspólna analiza dla wszystkich algorytmów - wpływ struktury na relatywną wydajność
-        # Znormalizuj odległości dla każdego rozmiaru i struktury
-        normalized_data = []
+        plt.title(f'Average Distance by Structure and Size - {algorithm}')
+        plt.ylabel('Instance Size')
+        plt.xlabel('Structure Type')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, f"heatmap_distance_{algorithm}.png"), dpi=300)
+        plt.close()
+    
+    # 2. Wykres interakcji między strukturą a rozmiarem dla czasu wykonania
+    for algorithm in all_summaries['algorithm'].unique():
+        plt.figure(figsize=(12, 8))
         
-        for size in summary['size'].unique():
-            for structure in summary['structure'].unique():
-                data = summary[(summary['size'] == size) & (summary['structure'] == structure)]
-                if not data.empty:
-                    min_dist = data['avg_distance'].min()
-                    
-                    for _, row in data.iterrows():
-                        normalized_data.append({
-                            'algorithm': row['algorithm'],
-                            'size': size,
-                            'structure': row['structure'],
-                            'relative_performance': row['avg_distance'] / min_dist
-                        })
+        # Filtruj dane dla algorytmu
+        alg_data = all_summaries[all_summaries['algorithm'] == algorithm]
         
-        if normalized_data:
-            norm_df = pd.DataFrame(normalized_data)
+        # Utwórz macierz danych do heat mapy
+        pivot_data = alg_data.pivot_table(
+            values='time_mean', 
+            index='size', 
+            columns='structure'
+        )
+        
+        # Stwórz heat mapę
+        sns.heatmap(pivot_data, annot=True, fmt=".2f", cmap="YlOrRd")
+        
+        plt.title(f'Average Time (s) by Structure and Size - {algorithm}')
+        plt.ylabel('Instance Size')
+        plt.xlabel('Structure Type')
+        plt.tight_layout()
+        plt.savefig(os.path.join(plots_dir, f"heatmap_time_{algorithm}.png"), dpi=300)
+        plt.close()
+    
+    # 3. Porównanie względnej wydajności różnych struktur dla danego algorytmu
+    for algorithm in all_summaries['algorithm'].unique():
+        plt.figure(figsize=(12, 8))
+        
+        # Filtruj dane dla algorytmu
+        alg_data = all_summaries[all_summaries['algorithm'] == algorithm]
+        
+        # Grupuj po rozmiarze i znajdź najlepszą strukturę
+        for size in alg_data['size'].unique():
+            size_data = alg_data[alg_data['size'] == size]
+            best_distance = size_data['distance_min'].min()
             
-            # Wykres słupkowy wpływu struktury na względną wydajność
-            plt.figure(figsize=(14, 10))
+            # Dodaj kolumnę z względną wydajnością
+            size_data['relative_distance'] = size_data['distance_mean'] / best_distance
             
-            # Grupuj po algorytmie i strukturze (średnia po rozmiarach)
-            rel_perf = norm_df.groupby(['algorithm', 'structure'])['relative_performance'].mean().reset_index()
-            
-            sns.barplot(x='algorithm', y='relative_performance', hue='structure', data=rel_perf)
-            plt.title('Average Relative Performance by Structure and Algorithm')
-            plt.xlabel('Algorithm')
-            plt.ylabel('Relative Performance (1.0 = best)')
-            plt.xticks(rotation=45)
-            plt.legend(title='Structure')
-            plt.grid(axis='y')
-            plt.tight_layout()
-            plt.savefig(os.path.join(plots_dir, "avg_relative_performance_by_structure.png"), dpi=300)
-            plt.close()
+            # Narysuj słupki dla każdej struktury
+            plt.bar(
+                [f"{s}_{size}" for s in size_data['structure']], 
+                size_data['relative_distance'],
+                label=f"Size {size}"
+            )
+        
+        plt.title(f'Relative Performance by Structure and Size - {algorithm}')
+        plt.xlabel('Structure_Size')
+        plt.ylabel('Relative Distance (to best)')
+        plt.axhline(y=1.0, color='r', linestyle='-', alpha=0.5)
+        plt.xticks(rotation=90)
+        plt.grid(axis='y')
+        plt.tight_layout()
+        plt.legend()
+        plt.savefig(os.path.join(plots_dir, f"relative_performance_{algorithm}.png"), dpi=300)
+        plt.close()
+    
+    # Zapisz zbiorcze wyniki
+    all_results.to_csv(os.path.join(output_dir, "all_results.csv"), index=False)
+    all_summaries.to_csv(os.path.join(output_dir, "all_summaries.csv"), index=False)

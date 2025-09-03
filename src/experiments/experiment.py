@@ -286,178 +286,126 @@ class Experiment:
             plt.close()
         except Exception as e:
             print(f"Error creating scatter plot: {str(e)}")
-
-def plot_times(self) -> None:
-    """
-    Tworzy wykresy czasów wykonania dla wszystkich algorytmów.
-    """
-    if self.results.empty or not self.save_dir:
-        print("No results or save directory specified.")
-        return
     
-    plots_dir = os.path.join(self.save_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
-    
-    # 1. Wykres słupkowy średnich czasów wykonania
-    plt.figure(figsize=(12, 8))
-    
-    # Grupuj po algorytmie
-    algorithm_times = self.results.groupby('algorithm')['time'].agg(['mean', 'std']).reset_index()
-    
-    plt.bar(
-        algorithm_times['algorithm'],
-        algorithm_times['mean'],
-        yerr=algorithm_times['std'],
-        capsize=5
-    )
-    
-    plt.title('Average Computation Time by Algorithm')
-    plt.xlabel('Algorithm')
-    plt.ylabel('Average Time (s)')
-    plt.xticks(rotation=45, ha='right')
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "average_times.png"), dpi=300)
-    plt.close()
-    
-    # 2. Wykres pudełkowy dla czasów wykonania (skala logarytmiczna)
-    plt.figure(figsize=(12, 8))
-    
-    # Dodaj kolumnę 'algorithm_instance' dla czytelności na wykresie pudełkowym
-    box_data = self.results.copy()
-    
-    # Próbuj wyodrębnić rozmiar instancji, jeśli dostępny
-    try:
-        box_data['size'] = box_data['instance'].str.extract(r'(\d+)').astype(int)
-        sns.boxplot(x='algorithm', y='time', hue='size', data=box_data)
-        plt.title('Computation Time Distribution by Algorithm and Instance Size')
-        plt.legend(title='Instance Size')
-    except Exception as e:
-        print(f"Warning extracting size for boxplot: {e}")
-        sns.boxplot(x='algorithm', y='time', data=box_data)
-        plt.title('Computation Time Distribution by Algorithm')
-    
-    plt.xlabel('Algorithm')
-    plt.ylabel('Time (s)')
-    plt.yscale('log')
-    plt.xticks(rotation=45, ha='right')
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "time_boxplot_log.png"), dpi=300)
-    plt.close()
-    
-    # 3. Wykres rozrzutu dla różnych rozmiarów instancji (skala logarytmiczna)
-    try:
+    def plot_times(self) -> None:
+        """
+        Tworzy wykresy czasów wykonania dla wszystkich algorytmów.
+        """
+        if self.results.empty or not self.save_dir:
+            print("No results or save directory specified.")
+            return
+        
+        plots_dir = os.path.join(self.save_dir, "plots")
+        os.makedirs(plots_dir, exist_ok=True)
+        
+        # 1. Wykres słupkowy średnich czasów wykonania
         plt.figure(figsize=(12, 8))
         
-        scatter_data = self.results.copy()
-        # Bardziej ogólny wzorzec do wyodrębniania rozmiaru instancji
-        scatter_data['size'] = scatter_data['instance'].str.extract(r'(\d+)').astype(int)
+        # Grupuj po algorytmie
+        algorithm_times = self.results.groupby('algorithm')['time'].agg(['mean', 'std']).reset_index()
         
-        for algorithm in scatter_data['algorithm'].unique():
-            alg_data = scatter_data[scatter_data['algorithm'] == algorithm]
-            plt.scatter(alg_data['size'], alg_data['time'], label=algorithm, alpha=0.7)
-            
-            # Dodaj linię trendu
-            sizes = sorted(alg_data['size'].unique())
-            if sizes:
-                avg_times = [alg_data[alg_data['size'] == size]['time'].mean() for size in sizes]
-                plt.plot(sizes, avg_times, '--', alpha=0.5)
+        plt.bar(
+            algorithm_times['algorithm'],
+            algorithm_times['mean'],
+            yerr=algorithm_times['std'],
+            capsize=5
+        )
         
-        plt.title('Computation Time vs. Instance Size by Algorithm')
-        plt.xlabel('Instance Size (number of cities)')
-        plt.ylabel('Time (s)')
-        plt.yscale('log')
-        plt.grid(True)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.title('Average Computation Time by Algorithm')
+        plt.xlabel('Algorithm')
+        plt.ylabel('Average Time (s)')
+        plt.xticks(rotation=45, ha='right')
+        plt.grid(axis='y')
         plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, "time_by_size_log.png"), dpi=300)
+        plt.savefig(os.path.join(plots_dir, "average_times.png"), dpi=300)
         plt.close()
-    except Exception as e:
-        print(f"Error creating scatter plot: {str(e)}")
-
-def plot_times(self) -> None:
-    """
-    Tworzy wykresy czasów wykonania dla wszystkich algorytmów.
-    """
-    if self.results.empty or not self.save_dir:
-        print("No results or save directory specified.")
-        return
-    
-    plots_dir = os.path.join(self.save_dir, "plots")
-    os.makedirs(plots_dir, exist_ok=True)
-    
-    # 1. Wykres słupkowy średnich czasów wykonania
-    plt.figure(figsize=(12, 8))
-    
-    # Grupuj po algorytmie
-    algorithm_times = self.results.groupby('algorithm')['time'].agg(['mean', 'std']).reset_index()
-    
-    plt.bar(
-        algorithm_times['algorithm'],
-        algorithm_times['mean'],
-        yerr=algorithm_times['std'],
-        capsize=5
-    )
-    
-    plt.title('Average Computation Time by Algorithm')
-    plt.xlabel('Algorithm')
-    plt.ylabel('Average Time (s)')
-    plt.xticks(rotation=45, ha='right')
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "average_times.png"), dpi=300)
-    plt.close()
-    
-    # 2. Wykres pudełkowy dla czasów wykonania (skala logarytmiczna)
-    plt.figure(figsize=(12, 8))
-    
-    # Dodaj kolumnę 'algorithm_instance' dla czytelności na wykresie pudełkowym
-    box_data = self.results.copy()
-    
-    # Próbuj wyodrębnić rozmiar instancji, jeśli dostępny
-    try:
-        box_data['size'] = box_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
-        sns.boxplot(x='algorithm', y='time', hue='size', data=box_data)
-        plt.title('Computation Time Distribution by Algorithm and Instance Size')
-        plt.legend(title='Instance Size')
-    except:
-        sns.boxplot(x='algorithm', y='time', data=box_data)
-        plt.title('Computation Time Distribution by Algorithm')
-    
-    plt.xlabel('Algorithm')
-    plt.ylabel('Time (s)')
-    plt.yscale('log')
-    plt.xticks(rotation=45, ha='right')
-    plt.grid(axis='y')
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "time_boxplot_log.png"), dpi=300)
-    plt.close()
-    
-    # 3. Wykres rozrzutu dla różnych rozmiarów instancji (skala logarytmiczna)
-    try:
+        
+        # 2. Wykres pudełkowy dla czasów wykonania (skala logarytmiczna)
         plt.figure(figsize=(12, 8))
         
-        scatter_data = self.results.copy()
-        scatter_data['size'] = scatter_data['instance'].str.extract(r'euclidean_(\d+)_').astype(int)
+        # Dodaj kolumnę 'algorithm_instance' dla czytelności na wykresie pudełkowym
+        box_data = self.results.copy()
         
-        for algorithm in scatter_data['algorithm'].unique():
-            alg_data = scatter_data[scatter_data['algorithm'] == algorithm]
-            plt.scatter(alg_data['size'], alg_data['time'], label=algorithm, alpha=0.7)
-            
-            # Dodaj linię trendu
-            sizes = alg_data['size'].unique()
-            avg_times = [alg_data[alg_data['size'] == size]['time'].mean() for size in sizes]
-            plt.plot(sizes, avg_times, '--', alpha=0.5)
+        # Próbuj wyodrębnić rozmiar instancji, jeśli dostępny
+        try:
+            box_data['size'] = box_data['instance'].str.extract(r'(\d+)').astype(int)
+            sns.boxplot(x='algorithm', y='time', hue='size', data=box_data)
+            plt.title('Computation Time Distribution by Algorithm and Instance Size')
+            plt.legend(title='Instance Size')
+        except Exception as e:
+            print(f"Warning extracting size for boxplot: {e}")
+            sns.boxplot(x='algorithm', y='time', data=box_data)
+            plt.title('Computation Time Distribution by Algorithm')
         
-        plt.title('Computation Time vs. Instance Size by Algorithm')
-        plt.xlabel('Instance Size (number of cities)')
+        plt.xlabel('Algorithm')
         plt.ylabel('Time (s)')
         plt.yscale('log')
-        plt.grid(True)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.xticks(rotation=45, ha='right')
+        plt.grid(axis='y')
         plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, "time_by_size_log.png"), dpi=300)
+        plt.savefig(os.path.join(plots_dir, "time_boxplot_log.png"), dpi=300)
         plt.close()
-    except Exception as e:
-        print(f"Error creating scatter plot: {str(e)}")
+        
+        # 3. Wykres rozrzutu dla różnych rozmiarów instancji (skala logarytmiczna)
+        try:
+            plt.figure(figsize=(12, 8))
+            
+            scatter_data = self.results.copy()
+            # Bardziej ogólny wzorzec do wyodrębniania rozmiaru instancji
+            scatter_data['size'] = scatter_data['instance'].str.extract(r'(\d+)').astype(int)
+            
+            for algorithm in scatter_data['algorithm'].unique():
+                alg_data = scatter_data[scatter_data['algorithm'] == algorithm]
+                plt.scatter(alg_data['size'], alg_data['time'], label=algorithm, alpha=0.7)
+                
+                # Dodaj linię trendu
+                sizes = sorted(alg_data['size'].unique())
+                if sizes:
+                    avg_times = [alg_data[alg_data['size'] == size]['time'].mean() for size in sizes]
+                    plt.plot(sizes, avg_times, '--', alpha=0.5)
+            
+            plt.title('Computation Time vs. Instance Size by Algorithm')
+            plt.xlabel('Instance Size (number of cities)')
+            plt.ylabel('Time (s)')
+            plt.yscale('log')
+            plt.grid(True)
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.tight_layout()
+            plt.savefig(os.path.join(plots_dir, "time_by_size_log.png"), dpi=300)
+            plt.close()
+        except Exception as e:
+            print(f"Error creating scatter plot: {str(e)}")
+
+    def summarize(self) -> pd.DataFrame:
+        """
+        Podsumowuje wyniki eksperymentu.
+        
+        Returns:
+            pd.DataFrame: Podsumowanie wyników
+        """
+        if self.results.empty:
+            print("No results to summarize.")
+            return pd.DataFrame()
+        
+        # Grupuj wyniki po algorytmie i instancji
+        summary = self.results.groupby(['algorithm', 'instance']).agg({
+            'distance': ['mean', 'min', 'max', 'std'],
+            'time': ['mean', 'min', 'max', 'std']
+        }).reset_index()
+        
+        # Spłaszcz hierarchię kolumn
+        summary.columns = ['_'.join(col).strip('_') for col in summary.columns.values]
+        
+        # Przygotuj opcjonalne podsumowanie po algorytmach
+        algorithm_summary = self.results.groupby(['algorithm']).agg({
+            'distance': ['mean', 'min', 'max', 'std'],
+            'time': ['mean', 'min', 'max', 'std']
+        }).reset_index()
+        algorithm_summary.columns = ['_'.join(col).strip('_') for col in algorithm_summary.columns.values]
+        
+        # Zapisz podsumowania do plików CSV, jeśli określono katalog zapisu
+        if self.save_dir:
+            summary.to_csv(os.path.join(self.save_dir, "summary.csv"), index=False)
+            algorithm_summary.to_csv(os.path.join(self.save_dir, "algorithm_summary.csv"), index=False)
+        
+        return summary
