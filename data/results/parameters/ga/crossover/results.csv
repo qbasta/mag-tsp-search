@@ -1,10 +1,10 @@
 algorithm,instance,run,distance,time,meta_crossover_type
-"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_0,,406.98277085501354,0.15647029999672668,OX
-"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_20_0,,950.2991518859062,0.0714224999974249,PMX
-"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_20_0,,415.17919593559986,0.17125629999645753,CX
-"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_1,,367.5782061643623,0.16686320000007981,OX
-"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_20_1,,1212.9232007229548,0.12110819999361411,PMX
-"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_20_1,,367.5782061643623,0.1707010000027367,CX
-"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_20_2,,394.3488143204167,0.1550719000006211,OX
-"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_20_2,,989.4763083916747,0.025356600002851337,PMX
-"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_20_2,,394.34881432041675,0.16062539999984438,CX
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_0,,664.9992468817971,0.2472420999984024,OX
+"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_50_0,,544.4692296559273,0.19598660000337986,PMX
+"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_50_0,,657.4477314723475,0.21738150000601308,CX
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_1,,767.5340720508509,0.2461805999992066,OX
+"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_50_1,,607.2156928939079,0.1922301000013249,PMX
+"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_50_1,,762.6141794663988,0.2777094999983092,CX
+"Genetic Algorithm (pop=100, mut=0.05, cx=OX)",euclidean_50_2,,577.4751647799501,0.26006640000559855,OX
+"Genetic Algorithm (pop=100, mut=0.05, cx=PMX)",euclidean_50_2,,558.3384328374511,0.19275740000011865,PMX
+"Genetic Algorithm (pop=100, mut=0.05, cx=CX)",euclidean_50_2,,574.1484399884463,0.21873559999949066,CX
